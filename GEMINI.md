@@ -92,6 +92,11 @@ flowchart LR
 4. **AI Evaluator (`lib/ai-evaluator.ts`):**
    * Evaluates seniority, tech stack overlap, remote compatibility, and visa sponsorship potential.
    * Returns calibrated score (0–100), executive rationale, evidence quotes, and key concerns.
+5. **Top 50 Distinct Company Openings Engine (`app/api/jobs/route.ts` & `app/page.tsx`):**
+   * Groups active candidate-matched postings by employer (`?distinct=true&minScore=65&limit=50`).
+   * Selects the single highest-scoring opening as the representative hero card for each company.
+   * Provides an interactive accordion displaying `+N other roles at this company` with individual fit scores and apply links.
+   * Sorted descending by candidate relevance score (100 -> 65), tie-broken by posting recency.
 
 ---
 

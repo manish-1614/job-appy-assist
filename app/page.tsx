@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Briefcase, 
   Sparkles, 
@@ -32,11 +32,20 @@ import {
   Link as LinkIcon,
   BookmarkPlus,
   Compass,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { EvaluatedJob, AtsType, RawJobPosting } from '@/lib/ats-adapters';
 import { CompanyConfig, CandidateProfile } from '@/lib/storage';
 import { AiEvaluationResult } from '@/lib/ai-evaluator';
+
+export interface DistinctCompanyGroup {
+  company: string;
+  primaryJob: EvaluatedJob;
+  otherJobs: EvaluatedJob[];
+  totalJobsCount: number;
+}
 
 interface ScanHistoryItem {
   id: string;
@@ -88,6 +97,12 @@ export default function Dashboard() {
   const [evalError, setEvalError] = useState<string | null>(null);
   const [evalSaveSuccess, setEvalSaveSuccess] = useState(false);
   const [isSavingEvaluatedJob, setIsSavingEvaluatedJob] = useState(false);
+
+  // Distinct company accordion expansion state
+  const [expandedCompanies, setExpandedCompanies] = useState<Record<string, boolean>>({});
+  const toggleCompanyExpand = (company: string) => {
+    setExpandedCompanies((prev) => ({ ...prev, [company]: !prev[company] }));
+  };
 
   // Load canonical jobs on mount
   const fetchCanonicalJobs = async () => {
@@ -195,14 +210,53 @@ export default function Dashboard() {
     );
   });
 
-  // 2. All Active Openings Tab Filter
-  const allActiveJobs = jobs.filter(j => 
-    j.status === 'open' &&
-    (searchQuery === '' || 
-      j.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      j.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.techStack.some(t => t.toLowerCase().includes(searchQuery.toLowerCase())))
-  );
+  // 2. Top 50 Distinct Companies (Grouped by employer, minScore >= 65, ranked by relevance)
+  const topDistinctCompanies: DistinctCompanyGroup[] = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const map = new Map<string, { companyName: string; jobs: EvaluatedJob[] }>();
+
+    for (const job of jobs) {
+      if (job.status !== 'open' || job.score < 65) continue;
+
+      const matchesSearch =
+        query === '' ||
+        job.title.toLowerCase().includes(query) ||
+        job.company.toLowerCase().includes(query) ||
+        job.techStack.some((t) => t.toLowerCase().includes(query));
+
+      if (!matchesSearch) continue;
+
+      const key = (job.company || 'Unknown').trim().toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, { companyName: job.company, jobs: [] });
+      }
+      map.get(key)!.jobs.push(job);
+    }
+
+    const groups: DistinctCompanyGroup[] = [];
+    for (const [, grp] of map.entries()) {
+      grp.jobs.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return new Date(b.firstSeenAt || 0).getTime() - new Date(a.firstSeenAt || 0).getTime();
+      });
+      groups.push({
+        company: grp.companyName,
+        primaryJob: grp.jobs[0],
+        otherJobs: grp.jobs.slice(1),
+        totalJobsCount: grp.jobs.length,
+      });
+    }
+
+    groups.sort((a, b) => {
+      if (b.primaryJob.score !== a.primaryJob.score) return b.primaryJob.score - a.primaryJob.score;
+      return new Date(b.primaryJob.firstSeenAt || 0).getTime() - new Date(a.primaryJob.firstSeenAt || 0).getTime();
+    });
+
+    return groups.slice(0, 50);
+  }, [jobs, searchQuery]);
+
+  // All active jobs count for reference
+  const allActiveJobs = jobs.filter(j => j.status === 'open');
 
   // 3. Review Queue Tab Filter (Possible Duplicates & Score 55-69)
   const reviewJobs = jobs.filter(j => 
@@ -454,11 +508,11 @@ export default function Dashboard() {
               }`}
             >
               <div className="flex items-center gap-3">
-                <Layers className="w-4 h-4" />
-                <span>All Active Openings</span>
+                <Building2 className="w-4 h-4" />
+                <span>Top 50 Companies</span>
               </div>
-              <span className="bg-purple-500/30 text-purple-200 text-xs px-2.5 py-0.5 rounded-full font-mono">
-                {allActiveJobs.length}
+              <span className="bg-purple-500/30 text-purple-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
+                {topDistinctCompanies.length}
               </span>
             </button>
 
@@ -583,7 +637,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <h2 className="text-2xl font-bold text-white tracking-tight">
                 {activeTab === 'fresh' && 'Fresh Job Openings (Last 24 Hours / 2 Scans)'}
-                {activeTab === 'all' && 'All Active Senior Engineering Openings'}
+                {activeTab === 'all' && 'Top 50 Distinct Company Openings (Relevance Ranked)'}
                 {activeTab === 'review' && 'Review Queue (Possible Duplicates & Review Fits)'}
                 {activeTab === 'watchlist' && 'Employer Watchlist & ATS Feeds'}
                 {activeTab === 'profile' && 'Candidate Profile & AI Matching Criteria'}
@@ -883,11 +937,11 @@ export default function Dashboard() {
 
           <div className="glass-panel p-5 flex items-center justify-between">
             <div>
-              <span className="text-xs text-slate-400 font-medium">Active Tracked Roles</span>
-              <div className="text-2xl font-bold text-purple-400 mt-1 font-mono">{allActiveJobs.length}</div>
+              <span className="text-xs text-slate-400 font-medium">Top Distinct Companies</span>
+              <div className="text-2xl font-bold text-purple-400 mt-1 font-mono">{topDistinctCompanies.length}</div>
             </div>
             <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
-              <Globe className="w-5 h-5" />
+              <Building2 className="w-5 h-5" />
             </div>
           </div>
 
@@ -967,36 +1021,179 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* CONTENT TAB 2: ALL ACTIVE */}
+        {/* CONTENT TAB 2: TOP 50 DISTINCT COMPANIES */}
         {activeTab === 'all' && (
           <div className="space-y-4">
-            {allActiveJobs.map((job) => (
-              <div
-                key={job.id}
-                onClick={() => setSelectedJob(job)}
-                className="glass-panel p-5 rounded-2xl cursor-pointer hover:border-purple-500/40 hover:bg-slate-900/60 transition-all flex items-center justify-between"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-purple-300 bg-purple-500/10 px-2.5 py-0.5 rounded-full border border-purple-500/20">
-                      {job.source}
-                    </span>
-                    <span className="text-xs font-medium text-white">{job.company}</span>
-                    <span className="text-xs text-slate-500">•</span>
-                    <span className="text-xs text-slate-400">{job.location}</span>
-                  </div>
-                  <h4 className="text-base font-bold text-white mt-1">{job.title}</h4>
-                </div>
+            <div className="flex items-center justify-between px-2 text-xs text-slate-400">
+              <span className="flex items-center gap-1.5 font-mono">
+                <Building2 className="w-3.5 h-3.5 text-purple-400" />
+                Showing Top {topDistinctCompanies.length} Distinct Employers (Ranked by Candidate Relevance, Min Score 65)
+              </span>
+              <span className="font-mono text-purple-300">
+                1 Primary Role per Employer + Expandable Openings
+              </span>
+            </div>
 
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <span className="text-lg font-bold font-mono text-white">{job.score}</span>
-                    <span className="text-xs text-slate-500 font-mono">/100</span>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-slate-500" />
-                </div>
+            {topDistinctCompanies.length === 0 ? (
+              <div className="glass-panel p-12 text-center rounded-3xl">
+                <Building2 className="w-8 h-8 text-slate-500 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-white">No Distinct Company Openings Matching Criteria</h3>
+                <p className="text-sm text-slate-400 max-w-md mx-auto mt-1">
+                  Trigger a live scan or adjust your search filter to discover relevant openings across tracked employers.
+                </p>
               </div>
-            ))}
+            ) : (
+              topDistinctCompanies.map((group, index) => {
+                const isExpanded = Boolean(expandedCompanies[group.company]);
+                const job = group.primaryJob;
+
+                return (
+                  <div
+                    key={group.company}
+                    className="glass-panel p-6 rounded-3xl border border-white/10 hover:border-purple-500/40 transition-all duration-300 space-y-4"
+                  >
+                    {/* Primary Company & Role Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 px-2.5 py-0.5 rounded-lg">
+                            #{index + 1}
+                          </span>
+                          <span className="text-base font-bold text-white tracking-tight flex items-center gap-1.5">
+                            <Building2 className="w-4 h-4 text-purple-400" />
+                            {group.company}
+                          </span>
+                          <span className="text-xs text-slate-500">•</span>
+                          <span className="text-xs font-mono text-slate-400">{job.source}</span>
+                          <span className="text-xs text-slate-500">•</span>
+                          <span className="text-xs text-slate-400">{job.location}</span>
+                        </div>
+
+                        <h4 
+                          onClick={() => setSelectedJob(job)}
+                          className="text-lg font-bold text-white hover:text-cyan-300 cursor-pointer transition-colors flex items-center gap-2"
+                        >
+                          {job.title}
+                          <span className="text-xs font-normal text-slate-500 hover:text-slate-300">
+                            (Inspect Breakdown →)
+                          </span>
+                        </h4>
+
+                        <p className="text-xs text-slate-300 line-clamp-2 max-w-3xl leading-relaxed">
+                          {job.matchReason}
+                        </p>
+                      </div>
+
+                      {/* Score Gauge */}
+                      <div className="flex flex-col items-end shrink-0 bg-slate-900/60 p-3 rounded-2xl border border-white/5 min-w-[120px] text-right">
+                        <div className="flex items-baseline gap-1">
+                          <span className={`text-2xl font-bold font-mono ${
+                            job.score >= 70 ? 'text-emerald-400' : 'text-amber-400'
+                          }`}>
+                            {job.score}
+                          </span>
+                          <span className="text-xs text-slate-500 font-mono">/100</span>
+                        </div>
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full mt-1 border capitalize ${
+                          job.score >= 70 
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}>
+                          {job.sponsorship} Sponsorship
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Tech Stack & Primary Action */}
+                    <div className="flex items-center justify-between pt-3 border-t border-white/5 flex-wrap gap-3">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {job.techStack.map((tech) => (
+                          <span key={tech} className="text-xs px-2.5 py-1 rounded-xl bg-white/5 text-slate-300 border border-white/5 font-mono">
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {group.otherJobs.length > 0 && (
+                          <button
+                            onClick={() => toggleCompanyExpand(group.company)}
+                            className="px-3 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-mono font-medium flex items-center gap-1.5 transition-all"
+                          >
+                            <span>+{group.otherJobs.length} other opening{group.otherJobs.length > 1 ? 's' : ''}</span>
+                            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+
+                        <a
+                          href={job.canonicalUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-glow-cyan transition-all"
+                        >
+                          <span>Apply Directly ↗</span>
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Secondary Roles Accordion */}
+                    {isExpanded && group.otherJobs.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-purple-500/20 space-y-2 bg-purple-950/20 p-4 rounded-2xl animate-in fade-in duration-200">
+                        <span className="text-xs font-mono text-purple-300 uppercase tracking-wider block font-semibold mb-2">
+                          Other Qualifying Openings at {group.company}
+                        </span>
+                        <div className="space-y-2">
+                          {group.otherJobs.map((otherJob) => (
+                            <div
+                              key={otherJob.id}
+                              className="p-3 rounded-xl bg-slate-900/80 border border-white/5 flex items-center justify-between hover:border-purple-500/30 transition-all"
+                            >
+                              <div className="space-y-0.5">
+                                <h5 
+                                  onClick={() => setSelectedJob(otherJob)}
+                                  className="text-sm font-semibold text-white hover:text-cyan-300 cursor-pointer transition-colors"
+                                >
+                                  {otherJob.title}
+                                </h5>
+                                <div className="flex items-center gap-2 text-xs text-slate-400">
+                                  <span>{otherJob.location}</span>
+                                  <span>•</span>
+                                  <span className="font-mono text-cyan-400">{otherJob.techStack.slice(0, 3).join(', ')}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <span className="font-mono font-bold text-sm text-white">{otherJob.score}</span>
+                                  <span className="text-[10px] text-slate-500 font-mono">/100</span>
+                                </div>
+
+                                <button
+                                  onClick={() => setSelectedJob(otherJob)}
+                                  className="text-xs px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white"
+                                >
+                                  Inspect
+                                </button>
+
+                                <a
+                                  href={otherJob.canonicalUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs px-3 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 flex items-center gap-1"
+                                >
+                                  <span>Apply</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
 

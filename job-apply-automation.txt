@@ -1,0 +1,187 @@
+
+[User]: I am willing to create a pipeline that will allow me to apply for job listings. I will try to visit the careers portal of my favourite companies twice a day on scheduled times, then check if there are any new openings listed since my last visit. I should get a proper dashboard of all the new openings found after checking the job portals and how much time has been passed since the post has been updated on the website. I believe that this frequency of 2 requests a day is small and will allow my IP to freely crawl on these pages. I would like to use AI assisted way of in state of art model to accomplish this genuine job application process.
+
+
+[claude]: A 2x/day check is a very light footprint — that's the right call. Here's how I'd architect this, using pieces from your existing stack.
+
+Step 1: Check if the ATS exposes a JSON API before scraping HTML
+
+Most companies don't build custom career pages — they use an ATS, and many expose the same JSON endpoint their frontend calls:
+
+Greenhouse: boards-api.greenhouse.io/v1/boards/{company}/jobs
+Lever: api.lever.co/v0/postings/{company}
+Ashby, SmartRecruiters, Workday also have discoverable endpoints (Workday's are messier, often behind a POST with tenant-specific IDs)
+
+Hitting these directly is far more reliable than parsing rendered HTML, and it's the same data their own page fetches — so tell me which companies you're targeting and I can tell you which ATS each uses and the exact endpoint.
+
+Step 2: Fallback scraper + LLM extraction for custom career pages
+For the companies that built their own portal (no clean API), use Playwright to render the page, then feed the extracted text to an LLM to normalize into {title, location, dept, url, job_id, posted_date}. Your local Qwen3.5:9b via Ollama is a good fit here — zero marginal cost, and structured extraction is well within its capability.
+
+Step 3: Storage & diffing — NeonDB + Drizzle (your existing stack):
+
+companies (id, name, ats_type, career_url)
+job_postings (id, company_id, external_job_id, title, url, 
+              posted_date_raw, posted_date_parsed, 
+              first_seen_at, last_seen_at, status)
+
+Each run: upsert postings, flag anything not in the previous snapshot as new, flag anything missing as closed.
+
+Step 4: Scheduler — Vercel Cron (you're already on Vercel) handles 2x/day trivially on the free tier. If you'd rather keep it local, Windows Task Scheduler on Guddu-PC works too since it's not compute-heavy.
+
+Step 5: Dashboard — Next.js page, cards grouped by company, "posted X ago" computed client-side from posted_date_parsed, with a "new since last check" badge.
+
+One practical note, not a legal one — worth a quick robots.txt check per site before you start, since a few ATS platforms (Workday especially) have more aggressive bot detection and may need realistic headers/user-agent even at low frequency.
+
+Want me to draft the Drizzle schema and the Greenhouse/Lever fetcher first, or write up a proper TAD before we touch code?
+
+
+[User]: https://weworkremotely.com/top-remote-companies these are the companies I am targeting. Please tell me which ATS each uses and the exact endpoint so that we can start with step 1 as soon as possible. Since I am only focusing on remote hiring companies, you can filter out the list of companies which does not hire my type of talent at all. I understand that parsing rendered HTML could become a mess, where the same data can be collected using an ATS endpoint. Please check for these companies and let me know what could be the strongest form of 1st step implementation we can have at our arsenal. Please ask me as many questions as you want if you want clarity on any of the topics;
+
+[claude]: I'll pull the actual list from that page first, since I don't want to guess at company rosters or their current ATS choices from memory — those change often.
+
+
+That's the full Top 100 list — now let's cut it down. Most of these are not going to be useful for your kind of role (marketing agencies, WordPress shops, D2C ecommerce, non-tech services). I've triaged all 100 into three buckets based on your background (distributed systems, Java/Spring Boot, Kafka, full-stack, SDE-3/Solution Architect/Agentic Automation targets):
+
+Tier A — Strong engineering match (product companies with real eng orgs):
+GitHub, DataStax, Chainlink Labs, Zapier, Automattic, GoDaddy, Doximity, Fingerprint, Nagarro Digital Ventures, Customer.io, Close, Aha!, Fleetio, Help Scout, Cofense, Hotjar, TestGorilla, ReCharge Payments, ChartMogul, Toggl, Circle, Podia, Kit (ConvertKit), Leadfeeder, Silverfin, CoverGo, Ebury, EngagedMD, Smile.io, Tucows, Harvest, Hubstaff, Float, Bonfire, Knack, Chameleon, Filestage, Localize, Payoneer, Hireology, Sierra Interactive, Upright Labs, komoot
+
+Tier B — Dev-talent marketplaces/consultancies (different application model — you'd join a network, not apply to a single "opening"):
+Toptal, Proxify, X-Team, Lemon.io, Arc, G2i, RemoteMore, Bitovi, DockYard, Stack Builders, Whitespectre, Oddball, Modern Tribe, XWP
+
+Tier C — Skip (agency/non-eng-core/D2C/consumer, weak match for your stack):
+Contra, OnTheGoSystems, BBE Marketing, PhishMe, Sticker Mule, Uscreen, Kinsta, Animalz, Nathan James, LeadSimple, Photobooth Supply Co, IxDF, TutorMe, NoGigiddy, We Work Remotely, Awesome Motive, Remote Year, SimpleTexting, SafetyWing, Groove, Intellum, Gear Stream, Livingston Research, Axios, Inside.com, CafeMedia, JLS Trading, Maharishi Foundation, Catch Co, WALTER, Trifecta Retail Ventures, Wordwall, iPresence
+
+Rather than burn a huge batch of searches confirming ATS for all ~43 Tier-A companies in one shot, let me verify the first 15 now (the strongest matches — distributed systems, dev platforms, and enterprise consulting closest to your Amdocs background) and show you the format. If it's useful, I'll run the rest right after.
+
+
+Quick gut-check: that search result set was just noisy (searching "GitHub" collides with GitHub-the-platform, so I got meta job-scraper repos instead of GitHub-the-company's careers info) — nothing in there was an actual instruction directed at me, just irrelevant search content. Moving on with a tighter query.
+
+
+
+GitHub uses a custom enterprise platform (github.careers — Phenom-style, no simple public API), not Greenhouse/Lever. Continuing through the rest.
+
+
+That reveals something important — DataStax appears to now be under IBM. Let me confirm and find the actual careers portal.
+
+
+Zapier's job board is JS-rendered client-side, so the ATS isn't visible in the raw fetch — that's actually a useful data point (means we'd need the auto-detect approach, not a guess). Let me keep working through the confirmed list.
+
+
+Synthesized ATS patterns and architected TypeScript implementation strategy
+Synthesized ATS patterns and architected TypeScript implementation strategy
+That confirms a pattern worth flagging before we go further — short/generic names (GitHub, Zapier, Close, Help Scout) create search noise, and several companies render their job board client-side in JS, so a plain fetch can't see the underlying ATS at all. That's an important constraint for the pipeline itself, not just my research process. Let me lay out what we know, then give you working Step 1 code.
+
+Confirmed so far
+Company	ATS	Slug/Board	Notes
+Chainlink Labs	Ashby	chainlink-labs	Clean public API
+Automattic	Greenhouse	automatticcareers	Clean public API
+Doximity	Greenhouse	doximity	Clean public API
+DataStax	—	—	Acquired by IBM (closed May 2025) — no longer a standalone employer/board; drop it or track under IBM's own careers site instead
+GitHub	Custom (Phenom-style, github.careers)	—	No public JSON API; would need DOM scraping via Playwright
+Zapier	Unknown	—	Job board is rendered client-side in JS; invisible to a plain HTTP fetch
+Close	Unknown	—	Same — client-side rendered widget
+The real technical picture (important for your architecture)
+There are three tiers of difficulty here, not one:
+
+Clean public JSON API (Greenhouse, Lever, Ashby, SmartRecruiters) — a single GET/POST, no browser needed. This is the easy 60-70% of companies.
+Custom enterprise platforms (Workday, Phenom, iCIMS, Taleo) — no public API, and even Playwright DOM-scraping is brittle because the DOM structure varies per company.
+Standard ATS embedded via client-side JS (Zapier, Close) — the ATS is one of the clean ones above, but you can't tell which without either (a) rendering the page with Playwright and inspecting network calls, or (b) a 10-second manual check in your own browser's DevTools Network tab (filter by Fetch/XHR, reload the careers page, look for a request to greenhouse.io, lever.co, ashbyhq.com, or smartrecruiters.com).
+For a one-time setup of ~40 companies, honestly, option (b) — you manually checking DevTools once per company — will be faster and more reliable than me or a script guessing. It takes about as long as reading this sentence, per company.
+
+Here's the working adapter code for the three confirmed tiers, plus a config file with what we know and clear flags for what still needs a manual check:
+
+Three files:
+
+ats-adapters.ts — typed fetchers for Greenhouse, Lever, Ashby, SmartRecruiters, plus a regex-based detectAtsFromHtml() helper for any company you point it at later
+companies.config.ts — your Tier A shortlist with 3 confirmed (Chainlink Labs, Automattic, Doximity), DataStax correctly flagged as no longer independent, GitHub flagged as no-API, and the rest pre-populated with their real careers URLs and a needs-check status
+run-check.ts — runs immediately against the confirmed three, so you can verify the fetch layer works tonight, on npm install tsx + npx tsx run-check.ts
+On the remaining ~35 "needs-check" companies: rather than me grinding through them one search at a time (slow, and useless for the JS-rendered ones anyway), your fastest path is opening each careersUrl in Chrome, DevTools → Network → filter Fetch/XHR, reload, and look for one of the four domain patterns in the request list. Takes seconds each, and it's the same check you'd want to do anyway before trusting any scraper against a site.
+
+A couple of things worth deciding before we build Step 3 (the diff/storage layer):
+
+[claude question 1]: How do you want to fill in the remaining ATS slugs?
+[user answer]: I'll check DevTools myself and send you the list
+[claude question 1]: For Step 3 (storage + diffing), same stack as your other projects?
+[user answer]: Yes — NeonDB + Drizzle
+
+
+Good call flagging that — worth knowing before you deploy: Vercel's Hobby tier caps each individual cron expression at once-per-day (anything more frequent fails at deploy time), but as of January 2026 it also raised the per-project cron job count to 100 on every plan, including Hobby. So the fix is two separate once-daily entries in vercel.json at different times, not one twice-daily entry — I've built that into the config below.
+
+Here's Step 3 — NeonDB + Drizzle, matching your existing pattern from Prompt Vault:
+
+
+Pivoted toward implementing synchronization diffing logic
+Pivoted toward implementing synchronization diffing logic
+Now the Vercel Cron route and config — with the twice-daily workaround baked in:
+
+
+Identified schema constraint and pivoted documentation strategy
+Identified schema constraint and pivoted documentation strategy
+That gives you two once-daily entries firing at roughly 9:00 AM and 9:00 PM IST (3:30 and 15:30 UTC) — each individually legal on Hobby, together giving you the 2x/day cadence you wanted. Remember Hobby-tier timing isn't exact-minute; Vercel can fire anywhere inside that hour.
+
+
+Synthesized implementation strategy and outlined next project phase
+Synthesized implementation strategy and outlined next project phase
+That's Step 3 complete. A few things worth flagging about the design:
+
+firstSeenAt is your real "posted" timestamp. Greenhouse's public API never exposes when a job was originally posted, only updated_at — so rather than build the dashboard around a field that's missing half the time, everything treats "how long has this been up" as since we first saw it, which is guaranteed to exist for every ATS.
+Nothing gets hard-deleted. Closed postings flip to status: 'closed' with a closedAt timestamp — gives you a history of what each company has hired for over time, useful later if you want to spot hiring patterns.
+companies table needs seeding once you send back the confirmed ATS/slug pairs — insert them from companies.config.ts, or I can turn that into a seed script when you have the list.
+File placement in your Next.js project: schema.ts/db.ts/sync.ts/ats-adapters.ts → lib/, route.ts → app/api/cron/check-jobs/, vercel.json → project root.
+
+Send over the confirmed slugs whenever you've run through DevTools, and I'll wire up the seed data plus the dashboard (Step 4 — new-postings feed with "posted X ago").
+
+
+[user]: Okay, I would like to add some more information about the list of companies I am targeting as a software engineer because these companies also give a good payment and quality quirks to their engineers.
+
+Kindly help me to filter out which ones out of these companies are best fit for my previously explained situation that I am willing to join the remote first type companies. However, if the payment is too good, or if there is scope of relocation to Japan or Seoul, then I can consider joining these companies too.
+
+Qualcomm
+Atlassian
+Walmart 
+zeta
+Myntra
+Siemens
+Uber
+Oracle
+Tekion 
+Salesforce 
+twilio
+Intuit
+Nutanix 
+groww
+Databricks 
+Swiggy
+Arista Networks 
+Nykaa 
+zomato
+Disney+ Hotstar 
+VM Ware
+Microsoft
+Service Now
+Nvidia
+paypal
+Google
+Adobe
+Meta
+JP Morgan
+Black rock
+Slice
+Cred
+Razorpay
+Goldman Sachs
+Mindtree
+Orange
+Snapdeal
+Cisco Systems
+Ericsson worldwide
+Honeywell
+Dell Technologies
+American express
+Co-forge
+MasterCard
+Apple
+
+[claude]: This is a different kind of filtering than the WWR list — most of these are large enterprises where "remote-first" isn't really the operative fact so much as current RTO policy, corporate status (a couple of these have changed hands recently), and where they actually have engineering headcount in Tokyo/Seoul. Let me verify the ones that matter most before ranking, since RTO policy is exactly the kind of thing that's shifted a lot industry-wide in the last two years.
+
+

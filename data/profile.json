@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "updatedAt": "2026-09-13T11:52:00.000Z",
+  "candidate": {
+    "name": "Manish Kumar Prajapati",
+    "email": "mkprajapati@zohomail.in",
+    "phone": "+91 821-013-4128",
+    "portfolioUrl": "https://manishprajapati.co.in",
+    "githubUrl": "https://github.com/manish-1614",
+    "linkedinUrl": "https://linkedin.com/in/mkprajapati1614",
+    "yearsOfExperience": 8.5,
+    "currentCompany": "Amdocs",
+    "currentTitle": "Software Engineer (Advanced)",
+    "education": "Master in Computer Application (BIT Mesra, 2014-2017, CGPA 8.02, AIR 7)",
+    "headline": "Senior Backend & Distributed Systems Engineer specializing in AI Agents, High-Throughput Architectures, and Zero-Fabrication Retrieval Systems"
+  },
+  "targetRoles": [
+    "Senior Backend Engineer",
+    "Staff Backend Engineer",
+    "Principal Software Engineer",
+    "Distributed Systems Engineer",
+    "Solutions Architect",
+    "AI Platform Architect",
+    "AI Workflow Automation Engineer",
+    "Full Stack Engineer (Backend Heavy)"
+  ],
+  "coreSkills": {
+    "languages": [
+      "Python",
+      "Java",
+      "JavaScript",
+      "TypeScript",
+      "SQL",
+      "C++",
+      "Shell script"
+    ],
+    "backendAndDistributed": [
+      "Microservices Architecture",
+      "Distributed Systems",
+      "Kafka",
+      "High-Throughput Pipelines",
+      "ETL/ELT",
+      "REST APIs",
+      "System Design",
+      "Zero-Downtime Migrations",
+      "Observability & Telemetry"
+    ],
+    "aiAndWorkflowAutomation": [
+      "AI Agents & Agentic Loops",
+      "LLM Orchestration",
+      "Zero-Fabrication Retrieval Architecture",
+      "Vector Databases (Pinecone)",
+      "In-Process Cosine Similarity",
+      "Failover Cascades & Resilience",
+      "Prompt Engineering",
+      "n8n Automation",
+      "Human-in-the-Loop Workflows"
+    ],
+    "cloudAndDevOps": [
+      "AWS (S3, RDS, Cloud-Native)",
+      "Docker",
+      "CI/CD (Jenkins)",
+      "Linux / Unix Systems"
+    ],
+    "databases": [
+      "PostgreSQL",
+      "MongoDB",
+      "Oracle",
+      "Pinecone Vector DB"
+    ]
+  },
+  "highlightedProjects": [
+    {
+      "name": "Amdocs CRM SaaS Platform",
+      "summary": "Led end-to-end backend engineering, architecture, and operation of distributed SaaS systems powering CRM for millions of telecom subscribers; reduced CSR query handling times by 40%."
+    },
+    {
+      "name": "Smriti Conversational Architecture",
+      "summary": "Flagship production AI system with zero-fabrication retrieval constraints, deterministic emotional gating, in-process cosine similarity over 768-dim embeddings, and failover cascades across model versions."
+    },
+    {
+      "name": "Enterprise OAuth2 Protocol Solution",
+      "summary": "Authored technical publication and enterprise solution resolving OAuth2 authentication failures across IMAP/POP3 protocol migrations."
+    }
+  ],
+  "preferences": {
+    "workMode": [
+      "Worldwide Remote",
+      "Remote (India Eligible)",
+      "Hybrid (India Top Tier)"
+    ],
+    "relocationTargetCountries": [
+      "Japan (Tokyo)",
+      "South Korea (Seoul)"
+    ],
+    "relocationRequirement": "Explicit visa sponsorship and relocation support required for international roles outside India",
+    "minimumSalaryInrLakhs": 25,
+    "targetSalaryInrLakhs": "35-65 Lakhs"
+  },
+  "dealbreakers": [
+    "Junior / Intern / Entry-level positions",
+    "Frontend-only roles (HTML/CSS/pure UI without backend depth)",
+    "Mandatory non-sponsored on-site requirements outside India",
+    "Agency or non-engineering service shops"
+  ]
+}

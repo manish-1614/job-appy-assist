@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     // Build distinct company groups with primary (highest score) and secondary jobs
     const distinctCompanies: DistinctCompanyGroup[] = [];
 
-    for (const [, group] of companyMap.entries()) {
+    for (const group of Array.from(companyMap.values())) {
       // Sort jobs within company by score descending, then by recency
       group.jobs.sort((a, b) => {
         if (b.score !== a.score) {

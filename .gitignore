@@ -16,11 +16,17 @@ pnpm-debug.log*
 .pnpm-debug.log*
 
 # Local environment secrets
-.env
-.env*.local
-.env.development
-.env.test
-.env.production
+.env*
+
+# Data stores and historical scans
+/data/
+/data-backup/
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
 
 # Temporary & test artifacts
 /tmp
@@ -32,8 +38,9 @@ pnpm-debug.log*
 Thumbs.db
 *.pem
 
-# Candidate personal contact documents
-mkp_resume_*.pdf
+# Candidate personal contact documents and exports
+*.pdf
+*.docx
 
 # Lockfiles from other package managers
 package-lock.json

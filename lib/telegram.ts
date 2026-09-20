@@ -12,8 +12,16 @@ export interface TelegramDeliveryResult {
   payloadText: string;
 }
 
+export function escapeHtml(str: string): string {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 /**
- * Format a Telegram Markdown digest for fresh qualifying roles or scan health summary
+ * Format a Telegram HTML digest for fresh qualifying roles or scan health summary
  */
 export function formatTelegramDigest(params: {
   scanId: string;
@@ -29,30 +37,30 @@ export function formatTelegramDigest(params: {
   });
 
   if (params.freshJobs.length === 0) {
-    return `⚡ *JOB DISCOVERY PORTAL - RETRIEVAL REPORT* ⚡\n\n` +
-      `📅 *Scan Run:* \`${params.scanId}\` (${scanDateStr} IST)\n` +
-      `🔍 *Status:* 0 new qualifying roles matching candidate profile in this run.\n` +
-      `🛡️ *Source Health:* ${params.healthySourcesCount}/${params.totalSourcesChecked} sources responding cleanly.\n\n` +
-      `_Automated 12-hour scanner is active and monitoring direct ATS & RSS feeds._`;
+    return `⚡ <b>JOB DISCOVERY PORTAL - RETRIEVAL REPORT</b> ⚡\n\n` +
+      `📅 <b>Scan Run:</b> <code>${escapeHtml(params.scanId)}</code> (${escapeHtml(scanDateStr)} IST)\n` +
+      `🔍 <b>Status:</b> 0 new qualifying roles matching candidate profile in this run.\n` +
+      `🛡️ <b>Source Health:</b> ${params.healthySourcesCount}/${params.totalSourcesChecked} sources responding cleanly.\n\n` +
+      `<i>Automated 12-hour scanner is active and monitoring direct ATS & RSS feeds.</i>`;
   }
 
-  let text = `🚀 *JOB DISCOVERY PORTAL - ${params.freshJobs.length} NEW MATCH(ES)* 🚀\n\n` +
-    `📅 *Scan Run:* \`${params.scanId}\` (${scanDateStr} IST)\n` +
-    `🎯 *Fresh Qualifying Openings (Score ≥ 70):*\n\n`;
+  let text = `🚀 <b>JOB DISCOVERY PORTAL - ${params.freshJobs.length} NEW MATCH(ES)</b> 🚀\n\n` +
+    `📅 <b>Scan Run:</b> <code>${escapeHtml(params.scanId)}</code> (${escapeHtml(scanDateStr)} IST)\n` +
+    `🎯 <b>Fresh Qualifying Openings (Score ≥ 70):</b>\n\n`;
 
   params.freshJobs.forEach((job, index) => {
     const starGlow = job.score >= 90 ? '🌟' : '✨';
-    text += `${index + 1}. ${starGlow} *${job.title}*\n`;
-    text += `   🏢 *Company:* ${job.company}\n`;
-    text += `   📍 *Location:* ${job.location}\n`;
-    text += `   📊 *Match Score:* \`${job.score}/100\` | 💰 ${job.salary}\n`;
-    text += `   🛂 *Sponsorship:* \`${job.sponsorship.toUpperCase()}\` | 📡 *Source:* ${job.source}\n`;
-    text += `   💡 *Why Match:* ${job.matchReason.slice(0, 140)}...\n`;
-    text += `   🔗 [Apply Directly](${job.canonicalUrl})\n\n`;
+    text += `${index + 1}. ${starGlow} <b>${escapeHtml(job.title)}</b>\n`;
+    text += `   🏢 <b>Company:</b> ${escapeHtml(job.company)}\n`;
+    text += `   📍 <b>Location:</b> ${escapeHtml(job.location)}\n`;
+    text += `   📊 <b>Match Score:</b> <code>${job.score}/100</code> | 💰 ${escapeHtml(job.salary)}\n`;
+    text += `   🛂 <b>Sponsorship:</b> <code>${escapeHtml(job.sponsorship.toUpperCase())}</code> | 📡 <b>Source:</b> ${escapeHtml(job.source)}\n`;
+    text += `   💡 <b>Why Match:</b> ${escapeHtml(job.matchReason.slice(0, 140))}...\n`;
+    text += `   🔗 <a href="${escapeHtml(job.canonicalUrl)}">Apply Directly</a>\n\n`;
   });
 
   text += `------------------------------------\n`;
-  text += `🛡️ *Source Health:* ${params.healthySourcesCount}/${params.totalSourcesChecked} feeds operational.\n`;
+  text += `🛡️ <b>Source Health:</b> ${params.healthySourcesCount}/${params.totalSourcesChecked} feeds operational.\n`;
   text += `📱 View complete candidate breakdown in your Glassmorphic Dashboard.`;
 
   return text;
@@ -91,7 +99,7 @@ export async function sendTelegramDigest(params: {
       body: JSON.stringify({
         chat_id: chatId,
         text: payloadText,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         disable_web_page_preview: false,
       }),
     });

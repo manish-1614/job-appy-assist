@@ -1,14 +1,100 @@
-# GEMINI.md - JobAppy Assist Project Context
+# GEMINI.md - JobAppy Assist Project Context & Master Directives
 
-## 1. Project Mission & Overview
+## 1. Operating contract (non-negotiable)
 
-**JobAppy Assist** is a high-precision, automated career intelligence and job discovery portal calibrated for senior distributed systems and AI engineers.
-
-Instead of scraping fragile aggregator websites, the platform connects directly to public employer ATS APIs (Greenhouse, Lever, Ashby, SmartRecruiters), high-signal RSS feeds, and on-demand target job URLs. Postings undergo multi-stage deterministic filtering, deduplication, and LLM-powered candidate fit evaluation (Gemini 2.5 Flash with heuristic fallback) before presenting actionable opportunities in a real-time command dashboard.
+* **Documentation-first, phase-gated.** For each phase: write `docs/phases/PHASE-N.md` (goal, design, task list, test plan, rollback) → **stop and wait for approval** → implement → write the Phase Report (section 11 of master instruction) → stop.
+* **Test-first for every bug.** Reproduce with a failing test using real fixtures from `data/jobs.json`, then fix. Framework: `vitest`.
+* **Never destructive on data.** Before any change touching `data/`, copy it to `data-backup/<timestamp>/`. Migrations are idempotent and reversible.
+* **Environment:** Windows 11, `cmd.exe` (no bash-isms in scripts or docs), `pnpm` only, Node LTS. Local-only: bind dev server to `127.0.0.1`.
+* **Secrets and personal data:** never print or commit `.env*`, contact details, resume files, or `data/`. Never put API keys in URLs (use headers).
+* **Dependencies:** justify each new dependency in the phase doc (why, size, alternative considered).
+* **Commits:** one logical change per commit, conventional commit messages. Do not push.
+* **Ambiguity:** if a `[DECISION]` is unresolved and no default exists, ask. Do not guess.
+* **Zero-fabrication rule (project-wide):** no generated text may state a fact about the candidate, a job, or a company that is not traceable to (a) the verified achievement bank, or (b) a verbatim quote from the job description. Applies to scoring rationale, cover letters, resumes, and Telegram messages.
 
 ---
 
-## 2. Calibrated Candidate Profile
+## 2. Product goal and principles
+
+**Goal:** shorten the path from "new opening exists" to "tailored application sent and followed up", for a remote-first search from India (plus Tokyo/Seoul with sponsorship).
+
+**Funnel the tool must serve:** discover → filter by real constraints → tailor → apply → follow up → learn. Discovery is already broad; the gaps are **precision, tailoring, and follow-through**.
+
+**Principles**
+
+* **LLM extracts, code judges.** The LLM extracts structured facts from the JD with supporting quotes; deterministic code computes gates, sub-scores, and tiers. No raw LLM 0–100 number decides anything.
+* **Hard constraints are gates, not points.** Location eligibility, role family, comp floor are pass/fail with a stored reason code.
+* **Never delete, always explain.** Rejected jobs stay in the store with `gateReason` so scoring can be audited.
+* **Human in the loop for outbound.** Nothing is submitted or sent without explicit approval. No auto-submitting ATS forms.
+
+---
+
+## 3. Audited ground truth (do not re-discover; fix)
+
+Numbers from `data/jobs.json` (1,975 jobs), `companies.json` (14 sources), `runs.json` (3 runs).
+
+|#|Finding|Evidence|Impact|
+|-|-|-|-|
+|F1|`canonicalizeUrl` strips `gh_jid`, which is job identity on company-hosted Greenhouse pages|520 Stripe jobs collapse to `https://stripe.com/jobs/search`; 1,374 stored URLs carry `gh_jid`|Level-1 dedup swallows every new Stripe role after the first scan; closed Stripe roles never detected|
+|F2|Title gate uses `includes('intern')`|`lib/ai-evaluator.ts` gate|Drops "**Intern**al Tools", "**Intern**ational …" titles|
+|F3|LLM deep-eval receives `contentHtml: job.matchReason` (the heuristic's own boilerplate), not the JD|`scripts/scheduler.ts`|"LLM scoring" is effectively title + company + location only|
+|F4|JD text is never persisted|`EvaluatedJob` has no description field|Blocks re-scoring, tailoring, caching, keyword-gap analysis|
+|F5|Existing-job `lastSeenAt` updates are lost|scheduler mutates an in-memory pool; `upsertCanonicalJobs` reloads from disk|Staleness undetectable|
+|F6|No closed-role detection in the JSON path|`status: 'closed'` never set outside the unused Postgres path|Dead roles stay "open"|
+|F7|Score is non-discriminating|median 71; 993/1,975 ≥ 70; 347 ≥ 90 (base 65 + keyword boosts)|Alerts are noise|
+|F8|Real constraints are not modeled|283 of 492 jobs scoring ≥ 85 are on-site outside India/JP/KR (e.g. Chicago, Seattle)|Top of the list is mostly unreachable|
+|F9|`isRemote` = string contains "remote"|267 ATS jobs flagged remote; 222 name a region (US/EU/…); only 6 name India|"Remote" ≠ remote-from-India|
+|F10|RSS location is hardcoded `'Remote / Global'`|292 jobs; 145 are engineering titles|Fabricated eligibility for We Work Remotely jobs|
+|F11|Fuzzy dedup strips seniority and ignores location|"Senior SWE (AI/ML), Trust [Bangalore]" flagged duplicate of "Senior Staff SWE, Trust [Remote-US]"; "…Distributed Systems [Bordeaux]" ~ "[Boston]" at conf 1.0|India-eligible roles hidden in the Review Queue (119 flagged)|
+|F12|Schema drift|1,386 of 1,975 records lack `status`/`firstSeenAt`/`lastSeenAt`; `/api/jobs?distinct=true` filters `status === 'open'`|~70% of the store (incl. all legacy Stripe/Datadog) is invisible in the main view|
+|F13|Fabricated fields|salary = "Salary not stated (Standard Senior Scale)" on 100% of jobs; heuristic "strengths" and `evidenceQuotes` are template strings; Tokyo/Seoul location alone sets `sponsorship: 'explicit'`|Violates zero-fabrication|
+|F14|Watchlist skew|Datadog + Stripe = 56% of the pool; the earlier remote-first Tier-A shortlist is mostly not in `companies.json`|Recall is dominated by on-site-heavy US employers|
+|F15|"Time since posted" unmet|1,510 Greenhouse jobs show `postedAgo: 'Live Ingestion'` (only `updated_at` is captured, then ignored)|Original requirement unmet|
+|F16|Scheduling is not happening|3 runs logged; last scan 2026-09-13; daemon is a long `setTimeout` chain that dies on sleep/reboot|No twice-daily cadence in practice|
+|F17|No application tracking|no applied/status/notes/follow-up anywhere|No feedback loop|
+|F18|Ops/security hygiene|Telegram `parse_mode: 'Markdown'` with unescaped titles (send failures); Gemini key in URL query; `sourcesChecked: 10` hardcoded; SSRF guard is protocol-only; no webhook secret; `saveScanResult` per broadcast creates a scan file each time|Reliability and safety|
+|F19|**Repo is public and `data/` is tracked**|`git ls-files` includes `data/profile.json` (contact details, salary targets) and all scans|Personal data exposed; contradicts "personal use only"|
+|F20|Inconsistent floor|`profile.json`: min 25 LPA; `GEMINI.md`: min 35 LPA|Scorer must use one source of truth|
+
+---
+
+## 4. Decisions
+
+|ID|Decision|Default|
+|-|-|-|
+|D1|Comp|Hard floor **INR 25L** (gate); soft target **35–65L** (score). Single source: `profile.json`; remove conflicting line from `GEMINI.md`|
+|D2|Eligible location classes|`remote_worldwide`, `remote_apac_or_india`, `india_office` (hybrid, top-tier employers only), `jp_kr_onsite_sponsored`. Everything else is gated|
+|D3|India office cities acceptable|Ranchi, Hyderabad, Pune, Gurgaon/Gurugram, Noida, New Delhi, Bengaluru, Mumbai|
+|D4|Contractor / EOR engagement|Allowed, but flagged `engagement: contractor` and shown on the card|
+|D5|Timezone overlap ceiling|Flag (not gate) roles requiring > 4h overlap with US Pacific; gate roles requiring overlap during IST 00:00–05:00 daily|
+|D6|"Solutions Architect"|Software/cloud architecture = eligible. Pre-sales / partner / sales-engineering = flagged `presales` and down-weighted (not gated)|
+|D7|Role-family priority|1) backend/distributed/platform 2) AI/agentic/applied-AI 3) architect 4) full-stack (backend-heavy). Frontend-only, mobile-only, pure data-science research = gated|
+|D8|Japan/Korea track|Enabled; Japan-telecom/SaaS domain affinity on|
+|D9|Models (env, not hardcoded)|`MODEL_EXTRACT` (Gemini Flash-class), `MODEL_WRITE` (best available writer), `MODEL_LOCAL` (Ollama, optional triage)|
+|D10|Storage|**SQLite via Drizzle (`better-sqlite3`)**; JSON kept only as import source and export. Neon/Vercel path frozen, not deleted|
+|D11|Weekly applications goal|10 ; drives dashboard progress and reminders|
+
+---
+
+## 5. Target architecture
+
+```
+sources (ATS adapters, RSS, URL paste, browser-bookmark paste)
+  → normalize (RawJob, stable identity: ats+slug+externalId)
+  → persist JD text + content hash
+  → gate 1: role/seniority (word-boundary regex, role-family classifier)
+  → LLM extraction (schema-enforced, quotes validated verbatim)   [cached by hash+promptVersion+model]
+  → gate 2: eligibility (location class, comp floor, engagement)
+  → scorer v2 (deterministic sub-scores → tier A/B/C)
+  → SQLite  →  Dashboard (Today, Pipeline, Jobs, Kit, Insights)  →  Telegram (Tier A + follow-ups due)
+                                                  ↘ Application Kit (tailor → validate → approve → Gmail draft)
+```
+
+Scheduling: **Windows Task Scheduler** runs `pnpm scan` twice daily with "run as soon as possible after a missed start". The `worker` daemon is deprecated.
+
+---
+
+## 6. Calibrated Candidate Profile
 
 The evaluation engine is calibrated against the candidate profile defined in `data/profile.json`:
 
@@ -28,127 +114,19 @@ The evaluation engine is calibrated against the candidate profile defined in `da
 * **Target Roles:** Staff Software Engineer, Principal Engineer, Lead Engineer, Senior Backend Engineer, Distributed Systems Architect, AI Systems Engineer
 * **Target Locations & Compensation:**
   * **Locations:** Remote (Worldwide / India) or Relocation to Japan (Tokyo) / South Korea (Seoul)
-  * **Target Compensation:** INR 35–65 LPA (Min INR 35L)
+  * **Target Compensation:** INR 35–65 LPA (Hard floor INR 25L per D1 and `data/profile.json`)
 
 ---
 
-## 3. Technology Stack & Tooling
+## 7. Development & Command Reference
 
-* **Framework:** Next.js 14.2 (App Router)
-* **Language:** TypeScript 5.5
-* **Package Manager:** `pnpm` 11.8+ (enforced via `packageManager` in `package.json`)
-* **Styling & UI:** Tailwind CSS 3.4, Lucide React icons, Framer Motion
-* **HTML & Feed Parsing:** Cheerio 1.2+ (for on-demand job URL extraction), RSS-Parser
-* **AI Evaluation:** Gemini 2.5 Flash API (`https://generativelanguage.googleapis.com`) with intelligent heuristic rules fallback
-* **Storage & Persistence:** Local JSON store (`data/jobs.json`, `data/companies.json`, `data/profile.json`, `data/scans/`) with Drizzle ORM schema ready for PostgreSQL / Neon database integration.
-
----
-
-## 4. System Architecture & Ingestion Pipeline
-
-```mermaid
-flowchart LR
-    subgraph Sources ["Ingestion Sources"]
-        ATS["Direct ATS APIs\n(Greenhouse, Lever, Ashby, SmartRecruiters)"]
-        RSS["Curated RSS Feeds"]
-        Manual["Manual URL Paste Bar\n(Any Web / Careers Link)"]
-    end
-
-    subgraph Pipeline ["Processing Engine"]
-        Gate["Stage 1: Deterministic Gate\n(Excludes junior, intern, frontend-only)"]
-        Dedup["Stage 2: Two-Tier Deduplication\n(Exact URL match + Title/Company fuzzy match)"]
-        AI["Stage 3: Hybrid Fit Evaluation\n(Gemini 2.5 Flash API or Heuristic Rules)"]
-    end
-
-    subgraph StorageUI ["Persistence & UI"]
-        DB[("data/jobs.json\n& data/scans/")]
-        UI["Command Dashboard\n(Fresh, All Active, Review Queue, Watchlist)"]
-        TG["Telegram Alerts\n(Instant digests of high-signal roles)"]
-    end
-
-    ATS --> Gate
-    RSS --> Gate
-    Manual --> Gate
-    Gate --> Dedup
-    Dedup --> AI
-    AI --> DB
-    DB --> UI
-    AI --> TG
-```
-
-### Ingestion Details
-1. **Direct ATS Adapters (`lib/ats-adapters.ts`):**
-   * Greenhouse: `https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true`
-   * Lever: `https://api.lever.co/v0/postings/{slug}?mode=json`
-   * Ashby: `https://api.ashbyhq.com/posting-api/job-board/{slug}`
-   * SmartRecruiters: `https://api.smartrecruiters.com/v1/companies/{slug}/postings`
-2. **On-Demand URL Evaluator (`app/api/eval/url/route.ts` & `lib/url-evaluator.ts`):**
-   * Automatically parses known ATS endpoints or scrapes public job web pages using Cheerio.
-   * Extracts clean job title, company name, location, and description text.
-   * Runs through the evaluation pipeline in real-time and computes match percentage score (0-100%).
-3. **Two-Tier Deduplication (`lib/dedup.ts`):**
-   * **Level 1 (Exact URL Match):** Merges multi-source sightings into a single canonical entry, updating evidence quotes.
-   * **Level 2 (Fuzzy Title & Company Match):** Flags overlapping postings in the Review Queue for candidate review (`merge` vs `confirm_distinct`).
-4. **AI Evaluator (`lib/ai-evaluator.ts`):**
-   * Evaluates seniority, tech stack overlap, remote compatibility, and visa sponsorship potential.
-   * Returns calibrated score (0–100), executive rationale, evidence quotes, and key concerns.
-5. **Top 50 Distinct Company Openings Engine (`app/api/jobs/route.ts` & `app/page.tsx`):**
-   * Groups active candidate-matched postings by employer (`?distinct=true&minScore=65&limit=50`).
-   * Selects the single highest-scoring opening as the representative hero card for each company.
-   * Provides an interactive accordion displaying `+N other roles at this company` with individual fit scores and apply links.
-   * Sorted descending by candidate relevance score (100 -> 65), tie-broken by posting recency.
-
----
-
-## 5. Directory Structure
-
-```
-job-appy-assist/
-├── app/
-│   ├── api/
-│   │   ├── companies/        # CRUD for employer watchlist
-│   │   ├── cron/check-jobs/  # Scheduled cron ingestion hook
-│   │   ├── eval/url/         # On-demand manual job URL evaluation
-│   │   ├── jobs/             # Canonical job listing endpoint
-│   │   ├── profile/          # Candidate profile fetch/update
-│   │   ├── review/resolve/   # Duplicate resolution actions
-│   │   ├── scan/manual/      # Trigger full watchlist live scan
-│   │   ├── scans/            # Historical scan record retrieval
-│   │   └── webhooks/         # External webhook broadcast ingestion
-│   ├── globals.css           # Tailwind & cyber-aesthetic design tokens
-│   ├── layout.tsx            # App shell
-│   └── page.tsx              # Main interactive glassmorphic dashboard
-├── data/
-│   ├── companies.json        # Tracked employer configurations & slugs
-│   ├── jobs.json             # Canonical active and reviewed jobs store
-│   ├── profile.json          # Candidate profile configuration
-│   └── scans/                # Historical snapshot audits & rate limits
-├── lib/
-│   ├── ai-evaluator.ts       # Gemini 2.5 Flash API + Heuristic scoring
-│   ├── ats-adapters.ts       # Greenhouse, Lever, Ashby, SmartRecruiters, RSS
-│   ├── dedup.ts              # Two-tier URL and title fuzzy deduplication
-│   ├── storage.ts            # Atomic file read/write utilities
-│   ├── telegram.ts           # Telegram bot alerting integration
-│   └── url-evaluator.ts      # URL extraction and single-posting evaluator
-├── scripts/
-│   └── scheduler.ts          # Standalone background polling worker
-├── GEMINI.md                 # Project context & architecture reference
-├── package.json              # Project dependencies & scripts
-├── pnpm-lock.yaml            # pnpm lockfile
-└── tsconfig.json             # TypeScript configuration
-```
-
----
-
-## 6. Development & Command Reference
-
-All commands must be executed using `pnpm`:
+All commands must be executed using `pnpm` and `cmd.exe`-compatible syntax:
 
 ```bash
 # Install dependencies
 pnpm install
 
-# Start local Next.js dev server (http://localhost:3000)
+# Start local Next.js dev server (bound to 127.0.0.1)
 pnpm dev
 
 # Build production bundle
@@ -157,25 +135,29 @@ pnpm build
 # Run Next.js production server
 pnpm start
 
+# Run unit / characterization tests
+pnpm test
+
 # Run ESLint validation
 pnpm lint
 
 # Trigger a one-time full scan across tracked ATS companies & feeds
 pnpm scan
-
-# Run continuous background worker polling daemon
-pnpm worker
 ```
 
 ---
 
-## 7. Environment Variables
+## 8. Environment Variables
 
-Create a `.env.local` file with the following keys if enabling external AI or live notifications:
+Configure `.env.local` (ensure it is never committed):
 
 ```env
-# Optional: Gemini API Key for semantic candidate-job matching
+# Gemini API Key for semantic candidate-job extraction
 GEMINI_API_KEY=your_google_ai_gemini_key
+
+# Models
+MODEL_EXTRACT=gemini-2.5-flash
+MODEL_WRITE=gemini-2.5-flash
 
 # Optional: Local Ollama fallback
 USE_OLLAMA=false
@@ -185,4 +167,3 @@ OLLAMA_HOST=http://localhost:11434
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 TELEGRAM_CHAT_ID=your_telegram_chat_id
 ```
-*(If no API keys are provided, the system automatically uses the zero-dependency, calibrated heuristic engine without crashing.)*

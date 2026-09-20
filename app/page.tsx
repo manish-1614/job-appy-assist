@@ -48,6 +48,7 @@ import TodayCockpit from '@/components/tracker/TodayCockpit';
 import PipelineKanban from '@/components/tracker/PipelineKanban';
 import FunnelInsights from '@/components/tracker/FunnelInsights';
 import ApplicationDrawerWidget from '@/components/tracker/ApplicationDrawerWidget';
+import KitStudio from '@/components/kit/KitStudio';
 import { ApplicationRecord, ApplicationStatus, ApplicationChannel } from '@/lib/applications';
 
 export interface DistinctCompanyGroup {
@@ -68,6 +69,7 @@ export default function Dashboard() {
   const [jobs, setJobs] = useState<EvaluatedJob[]>([]);
   const [activeTab, setActiveTab] = useState<'today' | 'fresh' | 'all' | 'pipeline' | 'insights' | 'review' | 'watchlist' | 'profile' | 'runs'>('today');
   const [selectedJob, setSelectedJob] = useState<EvaluatedJob | null>(null);
+  const [showKitModalJob, setShowKitModalJob] = useState<EvaluatedJob | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [lastScanTime, setLastScanTime] = useState<string>('Live Ingestion Ready');
@@ -1944,6 +1946,15 @@ export default function Dashboard() {
                 onUpdateDetails={(appId, details) => handleUpdateAppDetails(appId, details)}
               />
 
+              {/* APPLICATION KIT STUDIO BUTTON (Phase 4) */}
+              <button
+                onClick={() => setShowKitModalJob(selectedJob)}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-purple-600 to-magenta-500 hover:from-cyan-400 hover:to-magenta-400 text-white font-bold text-xs font-mono flex items-center justify-center gap-2 shadow-glow-cyan transition-all active:scale-95"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Tailor Application Kit (Resume &amp; Cover Letter) ↗</span>
+              </button>
+
               {/* CALIBRATION FEEDBACK WIDGET */}
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
@@ -2131,6 +2142,26 @@ export default function Dashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Kit Studio Modal */}
+      {showKitModalJob && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-5xl max-h-[92vh] bg-slate-950 border border-white/15 rounded-3xl p-6 overflow-y-auto relative shadow-2xl space-y-4">
+            <button
+              onClick={() => setShowKitModalJob(null)}
+              className="absolute right-5 top-5 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <KitStudio
+              jobId={showKitModalJob.id}
+              jobTitle={showKitModalJob.title}
+              company={showKitModalJob.company}
+              onClose={() => setShowKitModalJob(null)}
+            />
           </div>
         </div>
       )}

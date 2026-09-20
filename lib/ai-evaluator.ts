@@ -232,8 +232,8 @@ CANDIDATE PROFILE:
 Name: ${profile.candidate.name}
 Experience: ${profile.candidate.yearsOfExperience}+ years
 Current Title: ${profile.candidate.currentTitle} at ${profile.candidate.currentCompany}
-Core Stack: ${profile.coreSkills.languages.join(', ')} | ${profile.coreSkills.backendAndDistributed.join(', ')}
-Specialization: ${profile.coreSkills.aiAndWorkflowAutomation.join(', ')}
+Core Stack: ${profile.coreSkills.languages.map(s => typeof s === 'string' ? s : s.name).join(', ')} | ${profile.coreSkills.backendAndDistributed.map(s => typeof s === 'string' ? s : s.name).join(', ')}
+Specialization: ${profile.coreSkills.aiAndWorkflowAutomation.map(s => typeof s === 'string' ? s : s.name).join(', ')}
 Key Projects: Amdocs CRM SaaS (millions of users, 40% latency reduction), Smriti (zero-fabrication AI companion, in-process cosine similarity).
 Preferences: Remote (India / Worldwide) or Relocation to Japan (Tokyo) / South Korea (Seoul). Target: INR 35-65L.
 

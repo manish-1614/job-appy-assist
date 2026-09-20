@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "lint": "next lint",
     "scan": "node ./node_modules/tsx/dist/cli.mjs scripts/scheduler.ts --once",
-    "worker": "node ./node_modules/tsx/dist/cli.mjs scripts/scheduler.ts"
+    "worker": "node ./node_modules/tsx/dist/cli.mjs scripts/scheduler.ts",
+    "eval": "node ./node_modules/tsx/dist/cli.mjs scripts/eval-harness.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

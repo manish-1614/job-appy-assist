@@ -140,7 +140,46 @@ export function initDb() {
       verified INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS job_extractions (
+      job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+      content_hash TEXT NOT NULL,
+      prompt_version TEXT NOT NULL,
+      model TEXT NOT NULL,
+      extracted_at TEXT NOT NULL,
+      extraction_status TEXT NOT NULL DEFAULT 'success',
+      extracted_json TEXT NOT NULL,
+      sub_scores_json TEXT,
+      tier TEXT NOT NULL DEFAULT 'tier_c'
+    );
+    CREATE INDEX IF NOT EXISTS job_extractions_cache_idx ON job_extractions (content_hash, prompt_version, model);
+
+    CREATE TABLE IF NOT EXISTS job_labels (
+      job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      reason_code TEXT NOT NULL,
+      notes TEXT,
+      labeled_at TEXT NOT NULL
+    );
   `);
+
+  // Ensure Phase 2 columns exist on jobs table
+  try {
+    const tableInfo = sqlite.pragma('table_info(jobs)') as Array<{ name: string }>;
+    const existingCols = new Set(tableInfo.map((c) => c.name));
+    if (!existingCols.has('tier')) {
+      sqlite.exec(`ALTER TABLE jobs ADD COLUMN tier TEXT NOT NULL DEFAULT 'tier_c'`);
+      sqlite.exec(`CREATE INDEX IF NOT EXISTS jobs_tier_idx ON jobs (tier)`);
+    }
+    if (!existingCols.has('sub_scores_json')) {
+      sqlite.exec(`ALTER TABLE jobs ADD COLUMN sub_scores_json TEXT`);
+    }
+    if (!existingCols.has('extracted_facts_json')) {
+      sqlite.exec(`ALTER TABLE jobs ADD COLUMN extracted_facts_json TEXT`);
+    }
+  } catch (err) {
+    console.warn('Note: Could not run alter table pragma check:', err);
+  }
 }
 
 // Auto-initialize tables

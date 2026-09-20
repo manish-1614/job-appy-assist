@@ -41,6 +41,9 @@ export const jobs = sqliteTable('jobs', {
   sponsorship: text('sponsorship').notNull().default('unconfirmed'), // 'explicit' | 'possible' | 'unconfirmed'
   isRemote: integer('is_remote', { mode: 'boolean' }).notNull().default(false),
   salary: text('salary').default('Salary not stated'),
+  tier: text('tier').notNull().default('tier_c'), // 'tier_a' | 'tier_b' | 'tier_c'
+  subScoresJson: text('sub_scores_json'),
+  extractedFactsJson: text('extracted_facts_json'),
   status: text('status').notNull().default('open'), // 'open' | 'closed' | 'needs_check'
   gateReason: text('gate_reason'),
   consecutiveMissingScans: integer('consecutive_missing_scans').notNull().default(0),
@@ -51,6 +54,7 @@ export const jobs = sqliteTable('jobs', {
 }, (table) => ({
   statusIdx: index('jobs_status_idx').on(table.status),
   scoreIdx: index('jobs_score_idx').on(table.score),
+  tierIdx: index('jobs_tier_idx').on(table.tier),
   companyIdx: index('jobs_company_idx').on(table.company),
   canonicalUrlIdx: index('jobs_canonical_url_idx').on(table.canonicalUrl),
   identityIdx: uniqueIndex('jobs_identity_idx').on(table.ats, table.slug, table.externalId),
@@ -137,3 +141,32 @@ export const kitAchievements = sqliteTable('kit_achievements', {
   verified: integer('verified', { mode: 'boolean' }).notNull().default(false),
   createdAt: text('created_at').notNull(),
 });
+
+/**
+ * Phase 2: Structured Job Extractions cache and facts store
+ */
+export const jobExtractions = sqliteTable('job_extractions', {
+  jobId: text('job_id').primaryKey().references(() => jobs.id, { onDelete: 'cascade' }),
+  contentHash: text('content_hash').notNull(),
+  promptVersion: text('prompt_version').notNull(),
+  model: text('model').notNull(),
+  extractedAt: text('extracted_at').notNull(),
+  extractionStatus: text('extraction_status').notNull().default('success'), // 'success' | 'failed'
+  extractedJson: text('extracted_json').notNull(),
+  subScoresJson: text('sub_scores_json'),
+  tier: text('tier').notNull().default('tier_c'),
+}, (table) => ({
+  cacheIdx: index('job_extractions_cache_idx').on(table.contentHash, table.promptVersion, table.model),
+}));
+
+/**
+ * Phase 2: User Calibration Labels (thumbs up/down with reason codes)
+ */
+export const jobLabels = sqliteTable('job_labels', {
+  jobId: text('job_id').primaryKey().references(() => jobs.id, { onDelete: 'cascade' }),
+  label: text('label').notNull(), // 'up' | 'down'
+  reasonCode: text('reason_code').notNull(), // 'good_match' | 'bad_stack' | 'not_remote' | 'bad_location' | 'overqualified' | 'underqualified' | 'low_comp' | 'presales_heavy' | 'other'
+  notes: text('notes'),
+  labeledAt: text('labeled_at').notNull(),
+});
+

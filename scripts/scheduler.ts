@@ -28,6 +28,7 @@ import {
   updateManualScanTimestamp,
 } from '../lib/storage';
 import { passesDeterministicGate, evaluateWithHeuristics, evaluateJobWithLLM } from '../lib/ai-evaluator';
+import { scoreJobV2 } from '../lib/scorer';
 import { reconcileSourceScan, SourceScanResult, ScanObservation } from '../lib/lifecycle';
 import { sendTelegramDigest } from '../lib/telegram';
 import { canonicalizeUrl } from '../lib/dedup';
@@ -138,7 +139,21 @@ export async function executeScanJob(): Promise<void> {
           continue;
         }
 
-        const evalResult = evaluateWithHeuristics(raw, profile);
+        const scoreResult = await scoreJobV2({
+          job: {
+            id: `${company.ats}:${company.slug}:${raw.externalId}`,
+            title: raw.title,
+            company: raw.company,
+            location: raw.location,
+            firstPublishedAt: raw.postedAt || raw.updatedAt,
+            firstSeenAt: scanTimestampStr,
+          },
+          jdText: raw.contentHtml || `${raw.title} ${raw.location}`,
+          profile,
+        });
+
+        const mappedSponsorship: 'explicit' | 'possible' | 'unconfirmed' =
+          scoreResult.facts.visaSponsorship === 'explicit' ? 'explicit' : 'unconfirmed';
 
         observations.push({
           ats: company.ats,
@@ -150,33 +165,37 @@ export async function executeScanJob(): Promise<void> {
           canonicalUrl: canonicalizeUrl(raw.applyUrl),
           applyUrl: raw.applyUrl,
           sourceType: raw.channelType || 'ats',
-          score: evalResult.score,
-          matchReason: evalResult.matchReason,
-          strengths: evalResult.strengths,
-          concerns: evalResult.concerns,
-          techStack: evalResult.techStack,
-          sponsorship: evalResult.sponsorship,
-          isRemote: evalResult.isRemote,
-          salary: evalResult.salary,
+          score: scoreResult.score,
+          matchReason: scoreResult.strengths[0] || `Matches candidate profile for ${company.name}`,
+          strengths: scoreResult.strengths,
+          concerns: scoreResult.concerns,
+          techStack: scoreResult.facts.mustHaveTech,
+          sponsorship: mappedSponsorship,
+          isRemote: scoreResult.gate.locationClass.includes('remote'),
+          salary: scoreResult.facts.salary && scoreResult.facts.quotes.salary ? scoreResult.facts.quotes.salary : 'Salary not stated',
           firstPublishedAt: raw.postedAt || raw.updatedAt,
           contentHtml: raw.contentHtml,
           rawJson: JSON.stringify(raw),
         });
 
-        // Track qualifying jobs (score >= 70)
-        if (evalResult.score >= 70) {
+        // Track qualifying jobs (Tier A or Tier B)
+        if (scoreResult.tier === 'tier_a' || scoreResult.tier === 'tier_b') {
           allQualifyingJobs.push({
             id: `${company.ats}:${company.slug}:${raw.externalId}`,
             title: raw.title,
             company: raw.company,
             location: raw.location,
-            score: evalResult.score,
-            salary: evalResult.salary,
-            sponsorship: evalResult.sponsorship,
-            isRemote: evalResult.isRemote,
-            matchReason: evalResult.matchReason,
-            evidence: evalResult.strengths,
-            techStack: evalResult.techStack,
+            score: scoreResult.score,
+            tier: scoreResult.tier,
+            gateReason: scoreResult.gate.gateReason,
+            locationClass: scoreResult.gate.locationClass,
+            subScores: scoreResult.subScores,
+            salary: scoreResult.facts.salary && scoreResult.facts.quotes.salary ? scoreResult.facts.quotes.salary : 'Salary not stated',
+            sponsorship: mappedSponsorship,
+            isRemote: scoreResult.gate.locationClass.includes('remote'),
+            matchReason: scoreResult.strengths[0] || `Matches candidate profile for ${company.name}`,
+            evidence: scoreResult.evidenceQuotes,
+            techStack: scoreResult.facts.mustHaveTech,
             postedAgo: formatPostedAgo(raw.postedAt, scanTimestampStr),
             source: raw.channelType || 'ats',
             canonicalUrl: canonicalizeUrl(raw.applyUrl),
@@ -211,42 +230,14 @@ export async function executeScanJob(): Promise<void> {
     // Sort by score descending
     allQualifyingJobs.sort((a, b) => b.score - a.score);
 
-    // Optional LLM deep assessment for top roles using REAL JD content (F3)
-    const hasLlmKey = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.USE_OLLAMA === 'true');
-    if (hasLlmKey && allQualifyingJobs.length > 0) {
-      console.log(`🧠 Running deep LLM assessment on top ${Math.min(5, allQualifyingJobs.length)} roles...`);
-      const topRolesToDeepEval = allQualifyingJobs.slice(0, 5);
-
-      await Promise.all(topRolesToDeepEval.map(async (job) => {
-        try {
-          const rawEquiv: RawJobPosting = {
-            externalId: job.id,
-            company: job.company,
-            title: job.title,
-            location: job.location,
-            applyUrl: job.canonicalUrl,
-            contentHtml: job.matchReason, // Will be replaced with real JD in Phase 2
-            source: job.source,
-          };
-          const deepRes = await evaluateJobWithLLM(rawEquiv, profile);
-          job.score = deepRes.score;
-          job.matchReason = deepRes.matchReason;
-          if (deepRes.strengths.length > 0) {
-            job.evidence = [...deepRes.strengths, ...deepRes.evidenceQuotes];
-          }
-        } catch {
-          // Keep heuristic evaluation on error
-        }
-      }));
-    }
-
-    // Dispatch Telegram Report with accurate sourcesChecked (F18)
+    // Dispatch Telegram Report with accurate sourcesChecked for Tier A roles (F18, Section 7.4)
+    const tierARoles = allQualifyingJobs.filter((j) => j.tier === 'tier_a');
     const totalSourcesChecked = activeCompanies.length;
-    console.log(`📨 Dispatching Telegram notification digest (${totalSourcesChecked} sources checked)...`);
+    console.log(`📨 Dispatching Telegram notification digest (${totalSourcesChecked} sources checked, ${tierARoles.length} Tier A roles)...`);
     const telegramResult = await sendTelegramDigest({
       scanId: scanIdStr,
       timestamp: scanTimestampStr,
-      freshJobs: allQualifyingJobs.slice(0, 10),
+      freshJobs: tierARoles.slice(0, 10),
       totalSourcesChecked,
       healthySourcesCount: healthySourcesCount || totalSourcesChecked,
     });

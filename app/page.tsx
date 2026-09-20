@@ -34,7 +34,9 @@ import {
   Compass,
   AlertCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
 import { EvaluatedJob, AtsType, RawJobPosting } from '@/lib/ats-adapters';
 import { CompanyConfig, CandidateProfile } from '@/lib/storage';
@@ -104,6 +106,43 @@ export default function Dashboard() {
     setExpandedCompanies((prev) => ({ ...prev, [company]: !prev[company] }));
   };
 
+  // Phase 2: Calibration Labels & Tier Filter State
+  const [jobLabels, setJobLabels] = useState<Record<string, { label: 'up' | 'down'; reasonCode?: string }>>({});
+  const [tierFilter, setTierFilter] = useState<'all' | 'tier_a' | 'tier_b' | 'gated'>('all');
+  const [activeReasonPickerJobId, setActiveReasonPickerJobId] = useState<string | null>(null);
+
+  const fetchLabels = async () => {
+    try {
+      const res = await fetch('/api/labels');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.labels)) {
+        const map: Record<string, { label: 'up' | 'down'; reasonCode?: string }> = {};
+        for (const l of data.labels) {
+          map[l.jobId] = { label: l.label, reasonCode: l.reasonCode };
+        }
+        setJobLabels(map);
+      }
+    } catch (e) {
+      console.warn('Failed to load labels:', e);
+    }
+  };
+
+  const handleSaveLabel = async (jobId: string, label: 'up' | 'down', reasonCode: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setJobLabels((prev) => ({ ...prev, [jobId]: { label, reasonCode } }));
+    setActiveReasonPickerJobId(null);
+    try {
+      await fetch('/api/labels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, label, reasonCode }),
+      });
+    } catch (err) {
+      console.error('Failed to post label:', err);
+    }
+  };
+
+
   // Load canonical jobs on mount
   const fetchCanonicalJobs = async () => {
     try {
@@ -163,6 +202,7 @@ export default function Dashboard() {
     fetchCompanies();
     fetchProfile();
     checkRateLimitStatus();
+    fetchLabels();
   }, []);
 
   useEffect(() => {
@@ -207,13 +247,25 @@ export default function Dashboard() {
     return `${mins}m ${s < 10 ? '0' : ''}${s}s`;
   };
 
-  // 1. Fresh Matches Tab Filter (Last 24 Hours / 2 Scans AND score >= 70 AND status == 'open')
+  // Counts for Scorer v2 tiers
+  const tierACount = useMemo(() => jobs.filter(j => j.tier === 'tier_a').length, [jobs]);
+  const tierBCount = useMemo(() => jobs.filter(j => j.tier === 'tier_b').length, [jobs]);
+  const gatedCount = useMemo(() => jobs.filter(j => j.tier === 'tier_c' || Boolean(j.gateReason)).length, [jobs]);
+
+  // 1. Fresh Matches Tab Filter (Supports Tier A, Tier B, Gated)
   const freshJobs = jobs.filter(j => {
-    const isWithin24h = new Date().getTime() - new Date(j.firstSeenAt || Date.now()).getTime() < 24 * 60 * 60 * 1000;
+    const isTierMatched =
+      tierFilter === 'all'
+        ? (j.tier === 'tier_a' || j.tier === 'tier_b' || j.score >= 60)
+        : tierFilter === 'tier_a'
+        ? j.tier === 'tier_a'
+        : tierFilter === 'tier_b'
+        ? j.tier === 'tier_b'
+        : (j.tier === 'tier_c' || Boolean(j.gateReason));
+
     return (
-      j.status === 'open' &&
-      j.score >= 70 &&
-      (j.isNewInCurrentScan || isWithin24h) &&
+      (tierFilter === 'gated' ? true : j.status === 'open') &&
+      isTierMatched &&
       (searchQuery === '' || 
         j.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
         j.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -221,13 +273,17 @@ export default function Dashboard() {
     );
   });
 
-  // 2. Top 50 Distinct Companies (Grouped by employer, minScore >= 65, ranked by relevance)
+  // 2. Top Distinct Companies (Grouped by employer, ranked by relevance and tier)
   const topDistinctCompanies: DistinctCompanyGroup[] = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const map = new Map<string, { companyName: string; jobs: EvaluatedJob[] }>();
 
     for (const job of jobs) {
-      if (job.status !== 'open' || job.score < 65) continue;
+      if (tierFilter === 'tier_a' && job.tier !== 'tier_a') continue;
+      if (tierFilter === 'tier_b' && job.tier !== 'tier_b') continue;
+      if (tierFilter === 'gated' && job.tier !== 'tier_c' && !job.gateReason) continue;
+      if (tierFilter === 'all' && job.tier === 'tier_c' && job.score < 60) continue;
+      if (tierFilter !== 'gated' && job.status !== 'open') continue;
 
       const matchesSearch =
         query === '' ||
@@ -264,7 +320,7 @@ export default function Dashboard() {
     });
 
     return groups.slice(0, 50);
-  }, [jobs, searchQuery]);
+  }, [jobs, searchQuery, tierFilter]);
 
   // All active jobs count for reference
   const allActiveJobs = jobs.filter(j => j.status === 'open');
@@ -924,35 +980,35 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* METRICS ROW */}
+        {/* METRICS ROW (Scorer v2) */}
         <div className="grid grid-cols-4 gap-4">
           <div className="glass-panel p-5 flex items-center justify-between">
             <div>
-              <span className="text-xs text-slate-400 font-medium">Fresh Today (24h)</span>
-              <div className="text-2xl font-bold text-white mt-1 font-mono">{freshJobs.length}</div>
+              <span className="text-xs text-slate-400 font-medium">Tier A (Top Fit)</span>
+              <div className="text-2xl font-bold text-emerald-400 mt-1 font-mono">{tierACount}</div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shadow-glow-cyan">
               <Sparkles className="w-5 h-5" />
             </div>
           </div>
 
           <div className="glass-panel p-5 flex items-center justify-between">
             <div>
-              <span className="text-xs text-slate-400 font-medium">Review Queue</span>
-              <div className="text-2xl font-bold text-amber-400 mt-1 font-mono">{reviewJobs.length}</div>
+              <span className="text-xs text-slate-400 font-medium">Tier B (Qualifying)</span>
+              <div className="text-2xl font-bold text-cyan-400 mt-1 font-mono">{tierBCount}</div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+              <Briefcase className="w-5 h-5" />
             </div>
           </div>
 
           <div className="glass-panel p-5 flex items-center justify-between">
             <div>
-              <span className="text-xs text-slate-400 font-medium">Top Distinct Companies</span>
-              <div className="text-2xl font-bold text-purple-400 mt-1 font-mono">{topDistinctCompanies.length}</div>
+              <span className="text-xs text-slate-400 font-medium">Gated / Excluded</span>
+              <div className="text-2xl font-bold text-amber-400 mt-1 font-mono">{gatedCount}</div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
-              <Building2 className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5" />
             </div>
           </div>
 
@@ -964,6 +1020,59 @@ export default function Dashboard() {
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
               <Activity className="w-5 h-5" />
             </div>
+          </div>
+        </div>
+
+        {/* TIER FILTER BAR (Scorer v2) */}
+        <div className="flex items-center justify-between bg-slate-900/50 p-2.5 rounded-2xl border border-white/5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-mono text-slate-400 px-3 uppercase font-bold">Scorer v2 Tiers:</span>
+            <button
+              onClick={() => setTierFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all ${
+                tierFilter === 'all'
+                  ? 'bg-white/10 text-white font-bold border border-white/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              All Qualifying ({jobs.length - gatedCount})
+            </button>
+            <button
+              onClick={() => setTierFilter('tier_a')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ${
+                tierFilter === 'tier_a'
+                  ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 shadow-glow-cyan'
+                  : 'text-emerald-400 hover:bg-emerald-500/10'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>Tier A Top Fit ({tierACount})</span>
+            </button>
+            <button
+              onClick={() => setTierFilter('tier_b')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ${
+                tierFilter === 'tier_b'
+                  ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40'
+                  : 'text-cyan-400 hover:bg-cyan-500/10'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span>Tier B ({tierBCount})</span>
+            </button>
+            <button
+              onClick={() => setTierFilter('gated')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ${
+                tierFilter === 'gated'
+                  ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40'
+                  : 'text-amber-400 hover:bg-amber-500/10'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+              <span>Gated ({gatedCount})</span>
+            </button>
+          </div>
+          <div className="text-[11px] font-mono text-slate-500 pr-3 hidden sm:block">
+            Deterministic Gates (D1-D8) Active
           </div>
         </div>
 
@@ -987,10 +1096,25 @@ export default function Dashboard() {
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/20">
                           {job.source}
                         </span>
+                        {job.tier === 'tier_a' && (
+                          <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full shadow-glow-cyan">
+                            TIER A (TOP FIT)
+                          </span>
+                        )}
+                        {job.tier === 'tier_b' && (
+                          <span className="text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-full">
+                            TIER B
+                          </span>
+                        )}
+                        {job.gateReason && (
+                          <span className="text-[10px] font-mono text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                            {job.gateReason}
+                          </span>
+                        )}
                         <span className="text-xs text-slate-400">{job.company}</span>
                         <span className="text-xs text-slate-500">•</span>
                         <span className="text-xs text-slate-400">{job.location}</span>
@@ -1003,9 +1127,9 @@ export default function Dashboard() {
                       </p>
                     </div>
 
-                    <div className="flex flex-col items-end">
+                    <div className="flex flex-col items-end shrink-0 pl-4">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold font-mono text-white">{job.score}</span>
+                        <span className={`text-2xl font-bold font-mono ${job.tier === 'tier_a' ? 'text-emerald-400' : 'text-white'}`}>{job.score}</span>
                         <span className="text-xs text-slate-500 font-mono">/100</span>
                       </div>
                       <span className="text-xs font-mono text-emerald-400 mt-1 capitalize">
@@ -1014,7 +1138,7 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5 flex-wrap gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       {job.techStack.map((tech) => (
                         <span key={tech} className="text-xs px-2.5 py-1 rounded-xl bg-white/5 text-slate-300 border border-white/5">
@@ -1022,9 +1146,70 @@ export default function Dashboard() {
                         </span>
                       ))}
                     </div>
-                    <span className="text-xs font-mono text-cyan-400 group-hover:translate-x-1 transition-transform flex items-center gap-1">
-                      Inspect Breakdown →
-                    </span>
+
+                    <div className="flex items-center gap-3">
+                      {/* Thumbs Feedback */}
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={(e) => handleSaveLabel(job.id, 'up', 'good_match', e)}
+                          title="Thumbs Up (Good Match)"
+                          className={`p-1.5 rounded-xl border text-xs transition-all flex items-center gap-1 ${
+                            jobLabels[job.id]?.label === 'up'
+                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-glow-cyan'
+                              : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                        </button>
+
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveReasonPickerJobId(activeReasonPickerJobId === job.id ? null : job.id);
+                            }}
+                            title="Thumbs Down (Reject with Reason)"
+                            className={`p-1.5 rounded-xl border text-xs transition-all flex items-center gap-1 ${
+                              jobLabels[job.id]?.label === 'down'
+                                ? 'bg-rose-500/20 border-rose-500 text-rose-300'
+                                : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                            }`}
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                          </button>
+
+                          {activeReasonPickerJobId === job.id && (
+                            <div className="absolute right-0 bottom-full mb-2 w-52 bg-slate-900 border border-white/15 rounded-xl shadow-2xl p-2 z-40 space-y-1 text-left">
+                              <div className="text-[10px] font-mono text-slate-400 px-2 py-1 border-b border-white/10 font-bold">
+                                Downvote Reason:
+                              </div>
+                              {[
+                                { code: 'bad_stack', label: 'Bad Tech Stack' },
+                                { code: 'not_remote', label: 'Not Remote in India' },
+                                { code: 'bad_location', label: 'Ineligible Location' },
+                                { code: 'overqualified', label: 'Overqualified' },
+                                { code: 'underqualified', label: 'Underqualified' },
+                                { code: 'low_comp', label: 'Low Compensation' },
+                                { code: 'presales_heavy', label: 'Heavy Pre-sales' },
+                                { code: 'other', label: 'Other' },
+                              ].map((r) => (
+                                <button
+                                  key={r.code}
+                                  onClick={(e) => handleSaveLabel(job.id, 'down', r.code, e)}
+                                  className="w-full text-left px-2 py-1 rounded-lg text-xs text-slate-300 hover:bg-rose-500/20 hover:text-rose-200 transition-colors block"
+                                >
+                                  {r.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <span className="text-xs font-mono text-cyan-400 group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                        Inspect Breakdown →
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))
@@ -1359,10 +1544,10 @@ export default function Dashboard() {
 
                 <h4 className="text-sm font-mono text-slate-300 uppercase tracking-wider pt-4">Core Tech Stack</h4>
                 <div className="space-y-2 text-xs">
-                  <p><strong className="text-slate-400">Languages:</strong> {profile.coreSkills.languages.join(', ')}</p>
-                  <p><strong className="text-slate-400">Backend & Distributed:</strong> {profile.coreSkills.backendAndDistributed.join(', ')}</p>
-                  <p><strong className="text-slate-400">AI & Workflow Automation:</strong> {profile.coreSkills.aiAndWorkflowAutomation.join(', ')}</p>
-                  <p><strong className="text-slate-400">Databases:</strong> {profile.coreSkills.databases.join(', ')}</p>
+                  <p><strong className="text-slate-400">Languages:</strong> {profile.coreSkills.languages.map(s => typeof s === 'string' ? s : s.name).join(', ')}</p>
+                  <p><strong className="text-slate-400">Backend & Distributed:</strong> {profile.coreSkills.backendAndDistributed.map(s => typeof s === 'string' ? s : s.name).join(', ')}</p>
+                  <p><strong className="text-slate-400">AI & Workflow Automation:</strong> {profile.coreSkills.aiAndWorkflowAutomation.map(s => typeof s === 'string' ? s : s.name).join(', ')}</p>
+                  <p><strong className="text-slate-400">Databases:</strong> {profile.coreSkills.databases.map(s => typeof s === 'string' ? s : s.name).join(', ')}</p>
                 </div>
               </div>
 
@@ -1440,14 +1625,144 @@ export default function Dashboard() {
                 <p className="text-xs text-slate-500 mt-0.5">{selectedJob.location}</p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/40 to-purple-950/40 border border-cyan-500/30 flex items-center justify-between">
-                <div>
-                  <span className="text-xs text-slate-400 font-mono">HYBRID FIT SCORE</span>
-                  <div className="text-3xl font-bold text-white font-mono mt-0.5">{selectedJob.score}/100</div>
+              {/* SCORER V2 DETERMINISTIC FIT & TIER */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-cyan-950/50 to-purple-950/50 border border-cyan-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-slate-400 font-mono tracking-wider">SCORER V2 DETERMINISTIC FIT</span>
+                    <div className="text-3xl font-bold text-white font-mono mt-0.5">{selectedJob.score}/100</div>
+                  </div>
+                  <span className={`text-xs px-3 py-1 rounded-full font-mono font-bold border ${
+                    selectedJob.tier === 'tier_a'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-glow-cyan'
+                      : selectedJob.tier === 'tier_b'
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  }`}>
+                    {selectedJob.tier === 'tier_a' ? 'TIER A (TOP FIT)' : selectedJob.tier === 'tier_b' ? 'TIER B (QUALIFYING)' : selectedJob.gateReason || 'TIER C / GATED'}
+                  </span>
                 </div>
-                <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {selectedJob.score >= 70 ? 'Top Digest Fit' : 'Review Candidate'}
-                </span>
+
+                {/* Gates Status Checklist */}
+                <div className="pt-2 border-t border-white/10 grid grid-cols-2 gap-2 text-[11px] font-mono">
+                  <div className="flex items-center gap-1.5 text-slate-300">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Role & Seniority</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-300">
+                    {selectedJob.gateReason?.includes('region_locked') || selectedJob.gateReason?.includes('onsite_elsewhere') ? (
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                    ) : (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    )}
+                    <span className="truncate">Class: {selectedJob.locationClass || 'eligible'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-300">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Floor: ≥25L INR</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-300">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="capitalize">{selectedJob.sponsorship} Sponsorship</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* DETERMINISTIC SUB-SCORES BREAKDOWN */}
+              {selectedJob.subScores && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-mono text-cyan-400 tracking-wider uppercase font-bold flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Deterministic Sub-Scores Breakdown</span>
+                  </h4>
+                  <div className="bg-slate-900/60 p-4 rounded-2xl border border-white/5 space-y-2.5 text-xs font-mono">
+                    {[
+                      { name: 'Role Fit', weight: '30%', score: selectedJob.subScores.roleFit },
+                      { name: 'Stack Overlap', weight: '20%', score: selectedJob.subScores.stackOverlap },
+                      { name: 'Reachability', weight: '15%', score: selectedJob.subScores.reachability },
+                      { name: 'Domain Affinity', weight: '10%', score: selectedJob.subScores.domainAffinity },
+                      { name: 'Freshness', weight: '10%', score: selectedJob.subScores.freshness },
+                      { name: 'Comp Fit', weight: '10%', score: selectedJob.subScores.compFit },
+                      { name: 'Company Signal', weight: '5%', score: selectedJob.subScores.companySignal },
+                    ].map((s) => (
+                      <div key={s.name} className="space-y-1">
+                        <div className="flex justify-between text-slate-400 text-[11px]">
+                          <span>{s.name} ({s.weight})</span>
+                          <span className="text-white font-bold">{Math.round((s.score || 0) * 100)}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full"
+                            style={{ width: `${Math.round((s.score || 0) * 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* CALIBRATION FEEDBACK WIDGET */}
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-slate-300 font-bold">USER CALIBRATION RATING</span>
+                  {jobLabels[selectedJob.id] && (
+                    <span className="text-[11px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-lg border border-cyan-500/20">
+                      Labeled: {jobLabels[selectedJob.id].label === 'up' ? '👍 Good' : `👎 ${jobLabels[selectedJob.id].reasonCode}`}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleSaveLabel(selectedJob.id, 'up', 'good_match')}
+                    className={`flex-1 py-2 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                      jobLabels[selectedJob.id]?.label === 'up'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-glow-cyan'
+                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <ThumbsUp className="w-4 h-4" />
+                    <span>Good Match</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveReasonPickerJobId(activeReasonPickerJobId === selectedJob.id ? null : selectedJob.id)}
+                    className={`flex-1 py-2 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                      jobLabels[selectedJob.id]?.label === 'down'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/50'
+                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <ThumbsDown className="w-4 h-4" />
+                    <span>Reject...</span>
+                  </button>
+                </div>
+
+                {activeReasonPickerJobId === selectedJob.id && (
+                  <div className="p-3 bg-slate-900 border border-white/15 rounded-xl space-y-1 text-left animate-in fade-in duration-150">
+                    <div className="text-[10px] font-mono text-slate-400 pb-1 border-b border-white/10 font-bold">
+                      Select Rejection Reason:
+                    </div>
+                    {[
+                      { code: 'bad_stack', label: 'Bad Tech Stack' },
+                      { code: 'not_remote', label: 'Not Remote in India' },
+                      { code: 'bad_location', label: 'Ineligible Location' },
+                      { code: 'overqualified', label: 'Overqualified' },
+                      { code: 'underqualified', label: 'Underqualified' },
+                      { code: 'low_comp', label: 'Low Compensation' },
+                      { code: 'presales_heavy', label: 'Heavy Pre-sales' },
+                      { code: 'other', label: 'Other' },
+                    ].map((r) => (
+                      <button
+                        key={r.code}
+                        onClick={() => handleSaveLabel(selectedJob.id, 'down', r.code)}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-rose-500/20 hover:text-rose-200 transition-colors block"
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -1458,7 +1773,7 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-2">
-                <h4 className="text-xs font-mono text-slate-400 tracking-wider">AUDIT EVIDENCE & CORROBORATION</h4>
+                <h4 className="text-xs font-mono text-slate-400 tracking-wider">ZERO-FABRICATION AUDIT EVIDENCE</h4>
                 <ul className="space-y-2">
                   {selectedJob.evidence.map((ev, index) => (
                     <li key={index} className="text-xs text-slate-300 flex items-start gap-2 bg-white/5 p-3 rounded-xl">

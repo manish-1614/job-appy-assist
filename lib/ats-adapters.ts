@@ -33,6 +33,20 @@ export interface EvaluatedJob {
   company: string;
   location: string;
   score: number;
+  tier?: 'tier_a' | 'tier_b' | 'tier_c';
+  gateReason?: string | null;
+  locationClass?: string;
+  subScores?: {
+    roleFit: number;
+    stackOverlap: number;
+    reachability: number;
+    domainAffinity: number;
+    freshness: number;
+    compFit: number;
+    companySignal: number;
+    totalScore: number;
+    tier: string;
+  } | null;
   salary: string;
   sponsorship: 'explicit' | 'possible' | 'unconfirmed';
   isRemote: boolean;

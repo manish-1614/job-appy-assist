@@ -5,6 +5,8 @@ import { sqlite } from './db';
 import { cleanHtmlToText, computeContentHash } from './jd-cleaner';
 import { canonicalizeUrl, createJobIdentity } from './dedup';
 
+export type SkillItem = string | { name: string; verified: boolean };
+
 export interface CandidateProfile {
   version: string;
   updatedAt: string;
@@ -23,11 +25,11 @@ export interface CandidateProfile {
   };
   targetRoles: string[];
   coreSkills: {
-    languages: string[];
-    backendAndDistributed: string[];
-    aiAndWorkflowAutomation: string[];
-    cloudAndDevOps: string[];
-    databases: string[];
+    languages: SkillItem[];
+    backendAndDistributed: SkillItem[];
+    aiAndWorkflowAutomation: SkillItem[];
+    cloudAndDevOps: SkillItem[];
+    databases: SkillItem[];
   };
   highlightedProjects: Array<{
     name: string;
@@ -93,6 +95,8 @@ function ensureDirectories() {
 function mapDbRowToEvaluatedJob(r: any): EvaluatedJob {
   let evidence: string[] = [];
   let techStack: string[] = [];
+  let concerns: string[] = [];
+  let subScores: any = null;
   try {
     evidence = JSON.parse(r.strengths_json || '[]');
   } catch {
@@ -103,6 +107,16 @@ function mapDbRowToEvaluatedJob(r: any): EvaluatedJob {
   } catch {
     techStack = [];
   }
+  try {
+    concerns = JSON.parse(r.concerns_json || '[]');
+  } catch {
+    concerns = [];
+  }
+  try {
+    subScores = r.sub_scores_json ? JSON.parse(r.sub_scores_json) : null;
+  } catch {
+    subScores = null;
+  }
 
   return {
     id: r.id,
@@ -110,11 +124,16 @@ function mapDbRowToEvaluatedJob(r: any): EvaluatedJob {
     company: r.company,
     location: r.location,
     score: r.score,
+    tier: (r.tier as any) || (r.score >= 75 ? 'tier_a' : r.score >= 60 ? 'tier_b' : 'tier_c'),
+    gateReason: r.gate_reason,
+    locationClass: r.location_class,
+    subScores,
     salary: r.salary || 'Salary not stated',
     sponsorship: (r.sponsorship as any) || 'unconfirmed',
     isRemote: Boolean(r.is_remote),
     matchReason: r.match_reason || '',
     evidence,
+    concerns,
     techStack,
     postedAgo: formatPostedAgo(r.first_published_at, r.first_seen_at),
     source: r.source_type || 'ats',
@@ -145,6 +164,32 @@ export function saveCandidateProfile(profile: CandidateProfile): void {
   profile.updatedAt = new Date().toISOString();
   fs.writeFileSync(PROFILE_FILE, JSON.stringify(profile, null, 2), 'utf-8');
 }
+
+export function getSkillName(skill: SkillItem): string {
+  return typeof skill === 'string' ? skill : skill.name;
+}
+
+export function isSkillVerified(skill: SkillItem): boolean {
+  return typeof skill === 'string' ? true : Boolean(skill.verified);
+}
+
+export function getVerifiedSkills(profile: CandidateProfile): string[] {
+  const verified: string[] = [];
+  const categories = Object.values(profile.coreSkills || {});
+  for (const list of categories) {
+    if (Array.isArray(list)) {
+      for (const item of list) {
+        if (typeof item === 'string') {
+          verified.push(item);
+        } else if (item && typeof item === 'object' && item.verified) {
+          verified.push(item.name);
+        }
+      }
+    }
+  }
+  return verified;
+}
+
 
 // ----------------------------------------------------
 // Companies Watchlist Storage (SQLite Primary, JSON export)

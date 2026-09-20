@@ -263,6 +263,22 @@ export function reconcileSourceScan(
             .run(newMissingCount, openJob.id);
           insertEvent.run(openJob.id, 'closed', timestamp, JSON.stringify({ consecutiveMissingScans: newMissingCount }));
           summary.closedJobsCount++;
+
+          // Phase 3 Guardrail: Alert if this closed job has an active application
+          try {
+            const activeApp = sqlite
+              .prepare(
+                `SELECT id, status FROM applications WHERE job_id = ? AND status IN ('saved', 'applied', 'screening', 'interview')`
+              )
+              .get(openJob.id) as { id: string; status: string } | undefined;
+            if (activeApp) {
+              sqlite
+                .prepare(
+                  `INSERT INTO application_events (application_id, event_type, created_at, payload_json) VALUES (?, ?, ?, ?)`
+                )
+                .run(activeApp.id, 'job_closed_by_employer', timestamp, JSON.stringify({ consecutiveMissingScans: newMissingCount }));
+            }
+          } catch {}
         } else {
           // Grace period: first missing scan
           sqlite

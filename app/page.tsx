@@ -36,11 +36,19 @@ import {
   ChevronDown,
   ChevronUp,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Target,
+  BarChart2,
+  Flame
 } from 'lucide-react';
 import { EvaluatedJob, AtsType, RawJobPosting } from '@/lib/ats-adapters';
 import { CompanyConfig, CandidateProfile } from '@/lib/storage';
 import { AiEvaluationResult } from '@/lib/ai-evaluator';
+import TodayCockpit from '@/components/tracker/TodayCockpit';
+import PipelineKanban from '@/components/tracker/PipelineKanban';
+import FunnelInsights from '@/components/tracker/FunnelInsights';
+import ApplicationDrawerWidget from '@/components/tracker/ApplicationDrawerWidget';
+import { ApplicationRecord, ApplicationStatus, ApplicationChannel } from '@/lib/applications';
 
 export interface DistinctCompanyGroup {
   company: string;
@@ -58,7 +66,7 @@ interface ScanHistoryItem {
 
 export default function Dashboard() {
   const [jobs, setJobs] = useState<EvaluatedJob[]>([]);
-  const [activeTab, setActiveTab] = useState<'fresh' | 'all' | 'review' | 'watchlist' | 'profile' | 'runs'>('fresh');
+  const [activeTab, setActiveTab] = useState<'today' | 'fresh' | 'all' | 'pipeline' | 'insights' | 'review' | 'watchlist' | 'profile' | 'runs'>('today');
   const [selectedJob, setSelectedJob] = useState<EvaluatedJob | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isLiveMode, setIsLiveMode] = useState(false);
@@ -66,6 +74,108 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [totalFetchedCount, setTotalFetchedCount] = useState<number>(0);
   const [telegramStatus, setTelegramStatus] = useState<string | null>(null);
+
+  // Phase 3: Application Tracker, Today Cockpit, & Funnel Insights
+  const [applicationsMap, setApplicationsMap] = useState<Record<string, ApplicationRecord>>({});
+  const [applicationsList, setApplicationsList] = useState<ApplicationRecord[]>([]);
+  const [todayData, setTodayData] = useState<any>(null);
+  const [insightsData, setInsightsData] = useState<any>(null);
+
+  const fetchApplications = async () => {
+    try {
+      const res = await fetch('/api/applications');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.applications)) {
+        setApplicationsList(data.applications);
+        const map: Record<string, ApplicationRecord> = {};
+        for (const app of data.applications) {
+          map[app.jobId] = app;
+        }
+        setApplicationsMap(map);
+      }
+    } catch (e) {
+      console.warn('Failed to load applications:', e);
+    }
+  };
+
+  const fetchTodayData = async () => {
+    try {
+      const res = await fetch('/api/today');
+      const data = await res.json();
+      if (data.success) {
+        setTodayData(data);
+      }
+    } catch (e) {
+      console.warn('Failed to load today cockpit:', e);
+    }
+  };
+
+  const fetchInsightsData = async () => {
+    try {
+      const res = await fetch('/api/insights');
+      const data = await res.json();
+      if (data.success && data.insights) {
+        setInsightsData(data.insights);
+      }
+    } catch (e) {
+      console.warn('Failed to load insights:', e);
+    }
+  };
+
+  const handleTrackJob = async (jobId: string, status: ApplicationStatus = 'applied', channel: ApplicationChannel = 'direct') => {
+    try {
+      const res = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, status, channel }),
+      });
+      const data = await res.json();
+      if (data.success && data.application) {
+        setApplicationsMap((prev) => ({ ...prev, [jobId]: data.application }));
+        fetchApplications();
+        fetchTodayData();
+        fetchInsightsData();
+      }
+    } catch (err) {
+      console.error('Failed to track job:', err);
+    }
+  };
+
+  const handleUpdateAppStatus = async (applicationId: string, status: ApplicationStatus, notes?: string) => {
+    try {
+      const res = await fetch(`/api/applications/${applicationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, notes }),
+      });
+      const data = await res.json();
+      if (data.success && data.application) {
+        setApplicationsMap((prev) => ({ ...prev, [data.application.jobId]: data.application }));
+        fetchApplications();
+        fetchTodayData();
+        fetchInsightsData();
+      }
+    } catch (err) {
+      console.error('Failed to update application status:', err);
+    }
+  };
+
+  const handleUpdateAppDetails = async (applicationId: string, details: { channel?: ApplicationChannel; notes?: string }) => {
+    try {
+      const res = await fetch(`/api/applications/${applicationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(details),
+      });
+      const data = await res.json();
+      if (data.success && data.application) {
+        setApplicationsMap((prev) => ({ ...prev, [data.application.jobId]: data.application }));
+        fetchApplications();
+      }
+    } catch (err) {
+      console.error('Failed to update application details:', err);
+    }
+  };
 
   // Watchlist & Profile state
   const [companies, setCompanies] = useState<CompanyConfig[]>([]);
@@ -203,6 +313,9 @@ export default function Dashboard() {
     fetchProfile();
     checkRateLimitStatus();
     fetchLabels();
+    fetchApplications();
+    fetchTodayData();
+    fetchInsightsData();
   }, []);
 
   useEffect(() => {
@@ -550,6 +663,27 @@ export default function Dashboard() {
           {/* Navigation Links */}
           <nav className="space-y-2">
             <button
+              onClick={() => setActiveTab('today')}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
+                activeTab === 'today' 
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-glow-amber font-bold' 
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Flame className="w-4 h-4 text-amber-400" />
+                <span>Today Cockpit</span>
+              </div>
+              {todayData?.followUpsDue?.length > 0 ? (
+                <span className="bg-amber-500 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-mono font-extrabold animate-pulse">
+                  {todayData.followUpsDue.length} Due
+                </span>
+              ) : (
+                <span className="text-slate-500 text-xs font-mono">10/wk</span>
+              )}
+            </button>
+
+            <button
               onClick={() => setActiveTab('fresh')}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
                 activeTab === 'fresh' 
@@ -580,6 +714,40 @@ export default function Dashboard() {
               </div>
               <span className="bg-purple-500/30 text-purple-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
                 {topDistinctCompanies.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('pipeline')}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
+                activeTab === 'pipeline' 
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-glow-cyan font-bold' 
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Layers className="w-4 h-4" />
+                <span>Pipeline (Kanban)</span>
+              </div>
+              <span className="bg-cyan-500/30 text-cyan-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
+                {applicationsList.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('insights')}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
+                activeTab === 'insights' 
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-glow-magenta font-bold' 
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <BarChart2 className="w-4 h-4" />
+                <span>Funnel Analytics</span>
+              </div>
+              <span className="text-purple-300 text-xs font-mono font-bold">
+                {insightsData ? `${insightsData.responseRate}%` : '0%'}
               </span>
             </button>
 
@@ -1023,58 +1191,73 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* TIER FILTER BAR (Scorer v2) */}
-        <div className="flex items-center justify-between bg-slate-900/50 p-2.5 rounded-2xl border border-white/5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-mono text-slate-400 px-3 uppercase font-bold">Scorer v2 Tiers:</span>
-            <button
-              onClick={() => setTierFilter('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all ${
-                tierFilter === 'all'
-                  ? 'bg-white/10 text-white font-bold border border-white/20'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              All Qualifying ({jobs.length - gatedCount})
-            </button>
-            <button
-              onClick={() => setTierFilter('tier_a')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ${
-                tierFilter === 'tier_a'
-                  ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 shadow-glow-cyan'
-                  : 'text-emerald-400 hover:bg-emerald-500/10'
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span>Tier A Top Fit ({tierACount})</span>
-            </button>
-            <button
-              onClick={() => setTierFilter('tier_b')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ${
-                tierFilter === 'tier_b'
-                  ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40'
-                  : 'text-cyan-400 hover:bg-cyan-500/10'
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-              <span>Tier B ({tierBCount})</span>
-            </button>
-            <button
-              onClick={() => setTierFilter('gated')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ${
-                tierFilter === 'gated'
-                  ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40'
-                  : 'text-amber-400 hover:bg-amber-500/10'
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-              <span>Gated ({gatedCount})</span>
-            </button>
+        {/* CONTENT TAB 0: TODAY COCKPIT (Phase 3) */}
+        {activeTab === 'today' && (
+          <TodayCockpit
+            todayData={todayData}
+            onSelectJobId={(jobId) => {
+              const j = jobs.find((x) => x.id === jobId);
+              if (j) setSelectedJob(j);
+            }}
+            onTrackJob={(jobId, status) => handleTrackJob(jobId, status)}
+            onAdvanceStatus={(appId, status) => handleUpdateAppStatus(appId, status)}
+          />
+        )}
+
+        {/* TIER FILTER BAR (Scorer v2) - Shown on job browsing tabs */}
+        {(activeTab === 'fresh' || activeTab === 'all') && (
+          <div className="flex items-center justify-between bg-slate-900/50 p-2.5 rounded-2xl border border-white/5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-mono text-slate-400 px-3 uppercase font-bold">Scorer v2 Tiers:</span>
+              <button
+                onClick={() => setTierFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all ${
+                  tierFilter === 'all'
+                    ? 'bg-white/10 text-white font-bold border border-white/20'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                All Qualifying ({jobs.length - gatedCount})
+              </button>
+              <button
+                onClick={() => setTierFilter('tier_a')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ${
+                  tierFilter === 'tier_a'
+                    ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 shadow-glow-cyan'
+                    : 'text-emerald-400 hover:bg-emerald-500/10'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>Tier A Top Fit ({tierACount})</span>
+              </button>
+              <button
+                onClick={() => setTierFilter('tier_b')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ${
+                  tierFilter === 'tier_b'
+                    ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40'
+                    : 'text-cyan-400 hover:bg-cyan-500/10'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                <span>Tier B ({tierBCount})</span>
+              </button>
+              <button
+                onClick={() => setTierFilter('gated')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ${
+                  tierFilter === 'gated'
+                    ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40'
+                    : 'text-amber-400 hover:bg-amber-500/10'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                <span>Gated ({gatedCount})</span>
+              </button>
+            </div>
+            <div className="text-[11px] font-mono text-slate-500 pr-3 hidden sm:block">
+              Deterministic Gates (D1-D8) Active
+            </div>
           </div>
-          <div className="text-[11px] font-mono text-slate-500 pr-3 hidden sm:block">
-            Deterministic Gates (D1-D8) Active
-          </div>
-        </div>
+        )}
 
         {/* CONTENT TAB 1: FRESH MATCHES */}
         {activeTab === 'fresh' && (
@@ -1204,6 +1387,39 @@ export default function Dashboard() {
                             </div>
                           )}
                         </div>
+                      </div>
+
+                      {/* One-Click Track Actions (Phase 3) */}
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {applicationsMap[job.id] ? (
+                          <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                            {applicationsMap[job.id].status}
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTrackJob(job.id, 'applied');
+                              }}
+                              title="One-Click Mark Applied"
+                              className="px-2.5 py-1 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-mono font-bold transition-all flex items-center gap-1"
+                            >
+                              <Check className="w-3 h-3" />
+                              <span>Applied</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTrackJob(job.id, 'saved');
+                              }}
+                              title="Save to Pipeline"
+                              className="px-2 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-mono transition-all"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <span className="text-xs font-mono text-cyan-400 group-hover:translate-x-1 transition-transform flex items-center gap-1">
@@ -1391,6 +1607,23 @@ export default function Dashboard() {
               })
             )}
           </div>
+        )}
+
+        {/* CONTENT TAB: PIPELINE KANBAN (Phase 3) */}
+        {activeTab === 'pipeline' && (
+          <PipelineKanban
+            applications={applicationsList}
+            onSelectJobId={(jobId) => {
+              const j = jobs.find((x) => x.id === jobId);
+              if (j) setSelectedJob(j);
+            }}
+            onAdvanceStatus={(appId, status) => handleUpdateAppStatus(appId, status)}
+          />
+        )}
+
+        {/* CONTENT TAB: FUNNEL INSIGHTS (Phase 3) */}
+        {activeTab === 'insights' && (
+          <FunnelInsights insights={insightsData} />
         )}
 
         {/* CONTENT TAB 3: REVIEW QUEUE */}
@@ -1701,6 +1934,15 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+
+              {/* APPLICATION TRACKER WIDGET (Phase 3) */}
+              <ApplicationDrawerWidget
+                jobId={selectedJob.id}
+                application={applicationsMap[selectedJob.id] || null}
+                onTrack={(jobId, status, channel) => handleTrackJob(jobId, status, channel)}
+                onUpdateStatus={(appId, status, notes) => handleUpdateAppStatus(appId, status, notes)}
+                onUpdateDetails={(appId, details) => handleUpdateAppDetails(appId, details)}
+              />
 
               {/* CALIBRATION FEEDBACK WIDGET */}
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">

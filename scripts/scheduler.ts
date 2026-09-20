@@ -32,6 +32,7 @@ import { scoreJobV2 } from '../lib/scorer';
 import { reconcileSourceScan, SourceScanResult, ScanObservation } from '../lib/lifecycle';
 import { sendTelegramDigest } from '../lib/telegram';
 import { canonicalizeUrl } from '../lib/dedup';
+import { checkClosedTrackedJobs, getTodayCockpit } from '../lib/applications';
 
 const LOCK_FILE = path.join(process.cwd(), 'data', 'scanner.lock');
 
@@ -230,16 +231,27 @@ export async function executeScanJob(): Promise<void> {
     // Sort by score descending
     allQualifyingJobs.sort((a, b) => b.score - a.score);
 
+    // Check for tracked jobs closed by employers & follow-ups due (Phase 3)
+    const closedTrackedAlerts = checkClosedTrackedJobs();
+    const todayCockpit = getTodayCockpit();
+    const followUpsDue = todayCockpit.followUpsDue.map((f) => ({
+      title: f.title,
+      company: f.company,
+      status: f.status,
+    }));
+
     // Dispatch Telegram Report with accurate sourcesChecked for Tier A roles (F18, Section 7.4)
     const tierARoles = allQualifyingJobs.filter((j) => j.tier === 'tier_a');
     const totalSourcesChecked = activeCompanies.length;
-    console.log(`📨 Dispatching Telegram notification digest (${totalSourcesChecked} sources checked, ${tierARoles.length} Tier A roles)...`);
+    console.log(`📨 Dispatching Telegram notification digest (${totalSourcesChecked} sources checked, ${tierARoles.length} Tier A roles, ${followUpsDue.length} follow-ups due, ${closedTrackedAlerts.length} closed tracked alerts)...`);
     const telegramResult = await sendTelegramDigest({
       scanId: scanIdStr,
       timestamp: scanTimestampStr,
       freshJobs: tierARoles.slice(0, 10),
       totalSourcesChecked,
       healthySourcesCount: healthySourcesCount || totalSourcesChecked,
+      followUpsDue,
+      closedTrackedAlerts,
     });
     console.log(`✅ Telegram digest dispatched (${telegramResult.isMock ? 'Mock' : 'Live'}).`);
 

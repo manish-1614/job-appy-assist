@@ -14,14 +14,12 @@ describe('Characterization: URL Canonicalization & Deduplication', () => {
       expect(canonicalizeUrl(url)).toBe('https://example.com/jobs/123');
     });
 
-    it('characterizes F1: currently strips gh_jid which causes Stripe URL collapse', () => {
-      // In Phase 0 baseline, gh_jid is stripped by canonicalizeUrl
+    it('retains gh_jid so company-hosted Greenhouse URLs remain distinct (F1 resolved)', () => {
       const stripeUrl1 = 'https://stripe.com/jobs/search?gh_jid=123456';
       const stripeUrl2 = 'https://stripe.com/jobs/search?gh_jid=654321';
-      expect(canonicalizeUrl(stripeUrl1)).toBe('https://stripe.com/jobs/search');
-      expect(canonicalizeUrl(stripeUrl2)).toBe('https://stripe.com/jobs/search');
-      // Both collapse to the same canonical URL in Phase 0
-      expect(canonicalizeUrl(stripeUrl1)).toBe(canonicalizeUrl(stripeUrl2));
+      expect(canonicalizeUrl(stripeUrl1)).toBe('https://stripe.com/jobs/search?gh_jid=123456');
+      expect(canonicalizeUrl(stripeUrl2)).toBe('https://stripe.com/jobs/search?gh_jid=654321');
+      expect(canonicalizeUrl(stripeUrl1)).not.toBe(canonicalizeUrl(stripeUrl2));
     });
 
     it('handles trailing slash normalization', () => {
@@ -44,14 +42,16 @@ describe('Characterization: URL Canonicalization & Deduplication', () => {
   });
 
   describe('calculateTitleSimilarity', () => {
-    it('calculates Jaccard similarity after removing seniority tokens', () => {
-      // normalizeJobTitle strips senior, staff, lead, etc.
+    it('calculates Jaccard similarity preserving seniority tokens (F11 resolved)', () => {
+      // Senior vs Staff has intersection {backend, engineer} / union {senior, staff, backend, engineer} = 2/4 = 0.5
       const sim = calculateTitleSimilarity(
         'Senior Backend Engineer',
         'Staff Backend Engineer'
       );
-      // Both reduce to 'backend engineer', so similarity is 1.0
-      expect(sim).toBe(1.0);
+      expect(sim).toBe(0.5);
+
+      // Exact title match retains 1.0
+      expect(calculateTitleSimilarity('Senior Backend Engineer', 'Senior Backend Engineer')).toBe(1.0);
     });
   });
 
@@ -61,7 +61,7 @@ describe('Characterization: URL Canonicalization & Deduplication', () => {
         id: 'job-101',
         company: 'Stripe',
         title: 'Senior Staff Software Engineer, Trust',
-        canonicalUrl: 'https://stripe.com/jobs/search',
+        canonicalUrl: 'https://stripe.com/jobs/search?gh_jid=101',
       },
     ];
 
@@ -69,8 +69,8 @@ describe('Characterization: URL Canonicalization & Deduplication', () => {
       const result = checkJobDeduplication(
         {
           company: 'Stripe',
-          title: 'Senior SWE (AI/ML), Trust',
-          applyUrl: 'https://stripe.com/jobs/search?utm_source=twitter',
+          title: 'Senior Staff Software Engineer, Trust',
+          applyUrl: 'https://stripe.com/jobs/search?gh_jid=101&utm_source=twitter',
         },
         existing
       );
@@ -79,7 +79,7 @@ describe('Characterization: URL Canonicalization & Deduplication', () => {
       expect(result.matchedJobId).toBe('job-101');
     });
 
-    it('identifies Level 2 fuzzy duplicate when company matches and title similarity >= 0.6', () => {
+    it('identifies Level 2 fuzzy duplicate when company matches and title similarity >= 0.75', () => {
       const existingDiverse = [
         {
           id: 'job-201',
@@ -92,7 +92,7 @@ describe('Characterization: URL Canonicalization & Deduplication', () => {
       const result = checkJobDeduplication(
         {
           company: 'Datadog, Inc.',
-          title: 'Senior Distributed Systems Engineer',
+          title: 'Staff Distributed Systems Engineer (Platform)',
           applyUrl: 'https://boards.greenhouse.io/datadog/jobs/301',
         },
         existingDiverse

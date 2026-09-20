@@ -14,26 +14,110 @@ export interface AiEvaluationResult {
 }
 
 /**
- * Stage 1: Deterministic Pre-Filter Gate
- * Drops clear mismatches (junior, intern, frontend-only) in sub-millisecond time.
+ * Stage 1: Deterministic Pre-Filter Gate (v2)
+ * Drops clear mismatches (junior, intern, frontend-only) using word boundaries.
+ * F2 Fix: Word-boundary matching ensures "Internal Tools" and "International" pass cleanly.
  */
 export function passesDeterministicGate(raw: RawJobPosting): boolean {
-  const titleLower = raw.title.toLowerCase();
-  
-  // Hard exclusions
-  const exclusionKeywords = [
-    'junior', 'intern', 'internship', 'graduate', 'entry level',
-    'freshman', 'associate software engineer', 'trainee',
-    'frontend only', 'wordpress developer', 'ui designer'
+  const title = raw.title;
+
+  // Hard exclusions with word boundary regexes
+  const exclusionPatterns: RegExp[] = [
+    /\b(junior|jr)\b/i,
+    /\bintern(ship)?s?\b/i,
+    /\bgraduate\s*(engineer\s*)?(trainee)?\b/i,
+    /\bentry[\s-]?level\b/i,
+    /\bfreshman\b/i,
+    /\bassociate\s+software\s+engineer\b/i,
+    /\btrainee\b/i,
+    /\bfrontend\s+only\b/i,
+    /\bwordpress\s+developer\b/i,
+    /\bui\s+designer\b/i,
+    /\bgraphic\s+designer\b/i,
   ];
 
-  for (const kw of exclusionKeywords) {
-    if (titleLower.includes(kw)) {
+  for (const pattern of exclusionPatterns) {
+    if (pattern.test(title)) {
       return false;
     }
   }
 
   return true;
+}
+
+export type RoleFamily =
+  | 'backend_distributed'
+  | 'ai_agentic'
+  | 'architect'
+  | 'fullstack_backend'
+  | 'frontend_only'
+  | 'mobile_only'
+  | 'data_science_pure'
+  | 'unsupported';
+
+export interface RoleFamilyClassification {
+  family: RoleFamily;
+  isEligible: boolean;
+  presales: boolean;
+  reason: string;
+}
+
+/**
+ * Role Family Classifier Stub (D6, D7)
+ * Prioritizes:
+ * 1) backend/distributed/platform
+ * 2) AI/agentic/applied-AI
+ * 3) architect (software/cloud = eligible, pre-sales flagged)
+ * 4) full-stack (backend-heavy)
+ * Frontend-only, mobile-only, pure data-science research = gated
+ */
+export function classifyRoleFamily(title: string, description?: string): RoleFamilyClassification {
+  const t = (title || '').toLowerCase();
+
+  const isPresales = /\b(pre-sales|presales|partner\s+architect|sales\s+engineer(ing)?|solutions\s+consultant)\b/i.test(t);
+
+  // Excluded families (D7)
+  if (/\b(frontend|front-end|ui|ux|web\s+developer)\b/i.test(t) && !/\b(backend|full[\s-]?stack|systems)\b/i.test(t)) {
+    return { family: 'frontend_only', isEligible: false, presales: false, reason: 'Frontend-only / UI role excluded per D7' };
+  }
+  if (/\b(ios|android|mobile|flutter|react\s+native)\b/i.test(t) && !/\b(backend|platform)\b/i.test(t)) {
+    return { family: 'mobile_only', isEligible: false, presales: false, reason: 'Mobile-only role excluded per D7' };
+  }
+  if (/\b(data\s+scientist|ml\s+researcher|research\s+scientist|ai\s+researcher)\b/i.test(t) && !/\b(engineer|platform|architect)\b/i.test(t)) {
+    return { family: 'data_science_pure', isEligible: false, presales: false, reason: 'Pure data science research role excluded per D7' };
+  }
+
+  // Priority 1: Backend / Distributed / Platform
+  if (/\b(backend|back-end|distributed|systems|platform|infrastructure|infra|high-throughput|database|core)\b/i.test(t)) {
+    return { family: 'backend_distributed', isEligible: true, presales: isPresales, reason: 'Priority 1: Backend / Distributed / Platform' };
+  }
+
+  // Priority 2: AI / Agentic / Applied-AI
+  if (/\b(ai\s+agent|agentic|llm|applied\s+ai|machine\s+learning\s+engineer|mlops|ai\s+platform)\b/i.test(t)) {
+    return { family: 'ai_agentic', isEligible: true, presales: isPresales, reason: 'Priority 2: AI / Agentic / Applied AI' };
+  }
+
+  // Priority 3: Solutions Architect / Cloud Architect (D6)
+  if (/\b(architect|enterprise\s+architect|cloud\s+architect|systems\s+architect|solutions\s+architect)\b/i.test(t)) {
+    return {
+      family: 'architect',
+      isEligible: true,
+      presales: isPresales,
+      reason: isPresales ? 'Priority 3: Architect (Flagged presales per D6)' : 'Priority 3: Software / Cloud Architecture'
+    };
+  }
+
+  // Priority 4: Full-stack (backend-heavy)
+  if (/\b(full[\s-]?stack|fullstack)\b/i.test(t)) {
+    return { family: 'fullstack_backend', isEligible: true, presales: isPresales, reason: 'Priority 4: Full Stack (backend focus)' };
+  }
+
+  // Default Software Engineer / General Backend
+  if (/\b(software\s+engineer|swe|developer|sde|member\s+of\s+technical\s+staff)\b/i.test(t)) {
+    return { family: 'backend_distributed', isEligible: true, presales: isPresales, reason: 'General Software Engineering' };
+  }
+
+  return { family: 'unsupported', isEligible: false, presales: false, reason: 'Unsupported role family per D7' };
 }
 
 /**

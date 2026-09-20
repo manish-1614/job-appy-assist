@@ -1,5 +1,5 @@
 import { and, eq, notInArray, type InferSelectModel } from "drizzle-orm";
-import { db } from "./db";
+import { db } from "./db-neon";
 import { companies, jobPostings, checkRuns } from "./schema";
 import { fetchCompanyJobs, type AtsType, type JobPosting } from "./ats-adapters";
 

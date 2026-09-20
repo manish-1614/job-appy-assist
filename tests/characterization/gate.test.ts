@@ -28,10 +28,9 @@ describe('Characterization: Deterministic Gate (lib/ai-evaluator.ts)', () => {
     expect(passesDeterministicGate(makeRawJob('Frontend Only Developer'))).toBe(false);
   });
 
-  it('characterizes F2: substring match "intern" currently drops "Internal Tools" and "International"', () => {
-    // Current behavior uses titleLower.includes('intern')
-    // Therefore 'Internal Tools Engineer' is erroneously dropped in Phase 0 baseline
-    expect(passesDeterministicGate(makeRawJob('Software Engineer, Internal Tools'))).toBe(false);
-    expect(passesDeterministicGate(makeRawJob('International Expansion Engineer'))).toBe(false);
+  it('verifies F2 resolved: word-boundary matching allows "Internal Tools" and "International"', () => {
+    // F2 resolved: word-boundary regex allows internal and international engineering roles
+    expect(passesDeterministicGate(makeRawJob('Software Engineer, Internal Tools'))).toBe(true);
+    expect(passesDeterministicGate(makeRawJob('International Expansion Engineer'))).toBe(true);
   });
 });

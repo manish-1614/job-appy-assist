@@ -178,8 +178,19 @@ export default function Dashboard() {
     try {
       const res = await fetch('/api/scans');
       const data = await res.json();
-      if (data.success && Array.isArray(data.history)) {
+      if (data.success && Array.isArray(data.history) && data.history.length > 0) {
         setHistoryList(data.history);
+        const lastScanDate = new Date(data.history[0].timestamp);
+        const diffHours = Math.floor((Date.now() - lastScanDate.getTime()) / (1000 * 60 * 60));
+        if (diffHours < 1) {
+          const diffMins = Math.floor((Date.now() - lastScanDate.getTime()) / (1000 * 60));
+          setLastScanTime(diffMins <= 0 ? 'Just now' : `${diffMins}m ago`);
+        } else if (diffHours < 24) {
+          setLastScanTime(`${diffHours}h ago`);
+        } else {
+          const diffDays = Math.floor(diffHours / 24);
+          setLastScanTime(`${diffDays}d ago`);
+        }
       }
     } catch (e) {
       console.error('Failed to load scan history:', e);
@@ -234,7 +245,7 @@ export default function Dashboard() {
     }
 
     const groups: DistinctCompanyGroup[] = [];
-    for (const [, grp] of map.entries()) {
+    for (const grp of Array.from(map.values())) {
       grp.jobs.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         return new Date(b.firstSeenAt || 0).getTime() - new Date(a.firstSeenAt || 0).getTime();

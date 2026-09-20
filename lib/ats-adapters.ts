@@ -38,6 +38,8 @@ export interface EvaluatedJob {
   isRemote: boolean;
   matchReason: string;
   evidence: string[];
+  strengths?: string[];
+  concerns?: string[];
   techStack: string[];
   postedAgo: string;
   source: string;
@@ -64,14 +66,39 @@ export const WATCHLIST_COMPANIES = [
   { name: 'Airbnb', ats: 'greenhouse' as AtsType, slug: 'airbnb' },
 ];
 
-const rssParser = new Parser();
+const rssParser = new Parser({
+  customFields: {
+    item: [
+      ['region', 'region'],
+      ['location', 'location'],
+      ['country', 'country'],
+      ['dc:creator', 'creator'],
+    ],
+  },
+});
+
+/**
+ * Calculates human-readable "posted N days ago" from ISO dates (F15)
+ */
+export function formatPostedAgo(postedAt?: string, fallbackTimestamp?: string): string {
+  const targetDateStr = postedAt || fallbackTimestamp;
+  if (!targetDateStr) return 'Recently';
+
+  const diffMs = Date.now() - new Date(targetDateStr).getTime();
+  if (isNaN(diffMs)) return 'Recently';
+
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays <= 0) return 'Today';
+  if (diffDays === 1) return '1d ago';
+  return `${diffDays}d ago`;
+}
 
 export async function fetchRssJobs(feedUrl: string, sourceName: string): Promise<RawJobPosting[]> {
   try {
     const feed = await rssParser.parseURL(feedUrl);
     return (feed.items || []).map((item, idx) => {
       // Extract author or parse title like "Stripe: Senior Backend Engineer"
-      let company = item.creator || item.author || '';
+      let company = item.creator || (item as any).author || '';
       let title = item.title || 'Senior Software Role';
       
       if (!company && title.includes(':')) {
@@ -83,11 +110,15 @@ export async function fetchRssJobs(feedUrl: string, sourceName: string): Promise
         company = sourceName.replace(/\(.*\)/, '').trim();
       }
 
+      // F10 Fix: Read region/country fields if present in feed, otherwise mark unknown (never 'Remote / Global')
+      const rawLocation = (item as any).region || (item as any).location || (item as any).country || '';
+      const location = rawLocation.trim() || 'unknown';
+
       return {
         externalId: item.guid || item.link || `rss-${idx}`,
         company,
         title,
-        location: 'Remote / Global',
+        location,
         applyUrl: item.link || feedUrl,
         contentHtml: item.contentSnippet || item.content || '',
         postedAt: item.pubDate ? new Date(item.pubDate).toISOString() : undefined,
@@ -121,6 +152,7 @@ export async function fetchCompanyJobs(
         location: j.location?.name || 'Remote / Unstated',
         applyUrl: j.absolute_url,
         contentHtml: j.content || '',
+        postedAt: j.first_published || j.updated_at || undefined,
         updatedAt: j.updated_at,
         source: `Greenhouse ATS (${companyName})`,
         channelType: 'ats',

@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { EvaluatedJob, AtsType } from './ats-adapters';
+import { EvaluatedJob, AtsType, formatPostedAgo } from './ats-adapters';
+import { sqlite } from './db';
+import { cleanHtmlToText, computeContentHash } from './jd-cleaner';
+import { canonicalizeUrl, createJobIdentity } from './dedup';
 
 export interface CandidateProfile {
   version: string;
@@ -87,6 +90,44 @@ function ensureDirectories() {
   }
 }
 
+function mapDbRowToEvaluatedJob(r: any): EvaluatedJob {
+  let evidence: string[] = [];
+  let techStack: string[] = [];
+  try {
+    evidence = JSON.parse(r.strengths_json || '[]');
+  } catch {
+    evidence = [];
+  }
+  try {
+    techStack = JSON.parse(r.tech_stack_json || '[]');
+  } catch {
+    techStack = [];
+  }
+
+  return {
+    id: r.id,
+    title: r.title,
+    company: r.company,
+    location: r.location,
+    score: r.score,
+    salary: r.salary || 'Salary not stated',
+    sponsorship: (r.sponsorship as any) || 'unconfirmed',
+    isRemote: Boolean(r.is_remote),
+    matchReason: r.match_reason || '',
+    evidence,
+    techStack,
+    postedAgo: formatPostedAgo(r.first_published_at, r.first_seen_at),
+    source: r.source_type || 'ats',
+    channelType: (r.source_type === 'rss' ? 'rss' : 'ats') as any,
+    canonicalUrl: r.canonical_url,
+    status: (r.status as any) || 'open',
+    firstSeenAt: r.first_seen_at,
+    lastSeenAt: r.last_seen_at,
+    sourcesCount: 1,
+    extractedCompanyName: r.company,
+  };
+}
+
 // ----------------------------------------------------
 // Candidate Profile Storage
 // ----------------------------------------------------
@@ -106,25 +147,67 @@ export function saveCandidateProfile(profile: CandidateProfile): void {
 }
 
 // ----------------------------------------------------
-// Companies Watchlist Storage
+// Companies Watchlist Storage (SQLite Primary, JSON export)
 // ----------------------------------------------------
-export function loadCompanies(): CompanyConfig[] {
-  ensureDirectories();
-  if (!fs.existsSync(COMPANIES_FILE)) {
-    return [];
-  }
+function loadCompaniesFromJson(): CompanyConfig[] {
+  if (!fs.existsSync(COMPANIES_FILE)) return [];
   try {
     const content = fs.readFileSync(COMPANIES_FILE, 'utf-8');
     return JSON.parse(content) as CompanyConfig[];
-  } catch (err) {
-    console.error('Failed to parse companies.json:', err);
+  } catch {
     return [];
   }
+}
+
+export function loadCompanies(): CompanyConfig[] {
+  try {
+    const rows = sqlite.prepare('SELECT * FROM sources ORDER BY ats, name').all() as any[];
+    if (rows && rows.length > 0) {
+      return rows.map(r => ({
+        id: `comp-${r.slug}`,
+        name: r.name,
+        ats: r.ats as AtsType,
+        slug: r.slug,
+        careersUrl: r.careers_url || '',
+        priority: 1,
+        isActive: Boolean(r.active),
+      }));
+    }
+  } catch (err) {
+    console.warn('[Storage] SQLite read failed for sources, falling back to JSON:', err);
+  }
+
+  return loadCompaniesFromJson();
 }
 
 export function saveCompanies(companies: CompanyConfig[]): void {
   ensureDirectories();
   fs.writeFileSync(COMPANIES_FILE, JSON.stringify(companies, null, 2), 'utf-8');
+
+  // Also sync to SQLite sources
+  try {
+    const insertSource = sqlite.prepare(`
+      INSERT OR REPLACE INTO sources (
+        id, ats, slug, name, careers_url, active, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    sqlite.transaction(() => {
+      for (const c of companies) {
+        insertSource.run(
+          `${c.ats}:${c.slug}`,
+          c.ats,
+          c.slug,
+          c.name,
+          c.careersUrl || null,
+          c.isActive ? 1 : 0,
+          new Date().toISOString()
+        );
+      }
+    })();
+  } catch (err) {
+    console.error('[Storage] Failed to sync companies to SQLite:', err);
+  }
 }
 
 export function addCompany(company: Omit<CompanyConfig, 'id'>): CompanyConfig {
@@ -138,7 +221,7 @@ export function addCompany(company: Omit<CompanyConfig, 'id'>): CompanyConfig {
 
 export function toggleCompany(companyId: string, isActive?: boolean): CompanyConfig | null {
   const companies = loadCompanies();
-  const found = companies.find(c => c.id === companyId);
+  const found = companies.find(c => c.id === companyId || c.slug === companyId);
   if (!found) return null;
   found.isActive = isActive !== undefined ? isActive : !found.isActive;
   saveCompanies(companies);
@@ -146,20 +229,33 @@ export function toggleCompany(companyId: string, isActive?: boolean): CompanyCon
 }
 
 // ----------------------------------------------------
-// Canonical Jobs Storage & Upsert
+// Canonical Jobs Storage (SQLite Primary, JSON export)
 // ----------------------------------------------------
-export function loadCanonicalJobs(): EvaluatedJob[] {
+function loadCanonicalJobsFromJson(): EvaluatedJob[] {
   ensureDirectories();
-  if (!fs.existsSync(JOBS_FILE)) {
-    return [];
-  }
+  if (!fs.existsSync(JOBS_FILE)) return [];
   try {
     const content = fs.readFileSync(JOBS_FILE, 'utf-8');
     return JSON.parse(content) as EvaluatedJob[];
-  } catch (err) {
-    console.error('Failed to parse jobs.json:', err);
+  } catch {
     return [];
   }
+}
+
+export function loadCanonicalJobs(): EvaluatedJob[] {
+  try {
+    const rows = sqlite.prepare(`
+      SELECT * FROM jobs ORDER BY score DESC, first_seen_at DESC
+    `).all() as any[];
+
+    if (rows && rows.length > 0) {
+      return rows.map(mapDbRowToEvaluatedJob);
+    }
+  } catch (err) {
+    console.warn('[Storage] SQLite query failed, falling back to jobs.json:', err);
+  }
+
+  return loadCanonicalJobsFromJson();
 }
 
 export function saveCanonicalJobs(jobs: EvaluatedJob[]): void {
@@ -168,79 +264,144 @@ export function saveCanonicalJobs(jobs: EvaluatedJob[]): void {
 }
 
 /**
- * Upsert newly scanned jobs into canonical jobs.json, preserving firstSeenAt,
- * updating lastSeenAt, appending source corroboration, and keeping status.
+ * Upsert jobs into SQLite and export to JSON
  */
 export function upsertCanonicalJobs(incomingJobs: EvaluatedJob[]): {
   allJobs: EvaluatedJob[];
   newJobsCount: number;
   updatedJobsCount: number;
 } {
-  const existingJobs = loadCanonicalJobs();
-  const jobMap = new Map<string, EvaluatedJob>();
-
-  existingJobs.forEach(job => {
-    jobMap.set(job.id, job);
-  });
-
   let newJobsCount = 0;
   let updatedJobsCount = 0;
+  const now = new Date().toISOString();
 
-  incomingJobs.forEach(incoming => {
-    const existing = jobMap.get(incoming.id);
-    if (!existing) {
-      jobMap.set(incoming.id, incoming);
-      newJobsCount++;
-    } else {
-      // Merge updates
-      existing.lastSeenAt = incoming.lastSeenAt || new Date().toISOString();
-      existing.score = incoming.score;
-      existing.matchReason = incoming.matchReason;
-      existing.evidence = incoming.evidence;
-      existing.techStack = incoming.techStack;
-      if (incoming.source && !existing.source.includes(incoming.source)) {
-        existing.source = `${existing.source} + ${incoming.source}`;
-        existing.sourcesCount = (existing.sourcesCount || 1) + 1;
+  const insertOrUpdate = sqlite.prepare(`
+    INSERT INTO jobs (
+      id, ats, slug, external_id, title, company, location, location_class,
+      canonical_url, apply_url, source_type, score, match_reason,
+      strengths_json, concerns_json, tech_stack_json, sponsorship,
+      is_remote, salary, status, consecutive_missing_scans,
+      first_seen_at, last_seen_at
+    ) VALUES (
+      ?, ?, ?, ?, ?, ?, ?, 'unknown',
+      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?, 0,
+      ?, ?
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      title = excluded.title,
+      company = excluded.company,
+      location = excluded.location,
+      score = excluded.score,
+      match_reason = excluded.match_reason,
+      strengths_json = excluded.strengths_json,
+      concerns_json = excluded.concerns_json,
+      tech_stack_json = excluded.tech_stack_json,
+      sponsorship = excluded.sponsorship,
+      is_remote = excluded.is_remote,
+      salary = excluded.salary,
+      last_seen_at = excluded.last_seen_at
+  `);
+
+  sqlite.transaction(() => {
+    for (const job of incomingJobs) {
+      const existing = sqlite.prepare('SELECT id FROM jobs WHERE id = ?').get(job.id);
+      if (existing) {
+        updatedJobsCount++;
+      } else {
+        newJobsCount++;
       }
-      updatedJobsCount++;
-    }
-  });
 
-  const allJobs = Array.from(jobMap.values());
-  // Sort descending by score
-  allJobs.sort((a, b) => b.score - a.score);
+      insertOrUpdate.run(
+        job.id,
+        job.source || 'ats',
+        job.extractedCompanyName || job.company || 'unknown',
+        job.id,
+        job.title,
+        job.company,
+        job.location,
+        job.canonicalUrl,
+        job.canonicalUrl,
+        job.channelType || 'ats',
+        job.score,
+        job.matchReason,
+        JSON.stringify(job.evidence || []),
+        JSON.stringify(job.concerns || []),
+        JSON.stringify(job.techStack || []),
+        job.sponsorship,
+        job.isRemote ? 1 : 0,
+        job.salary,
+        job.status || 'open',
+        job.firstSeenAt || now,
+        job.lastSeenAt || now
+      );
+    }
+  })();
+
+  const allJobs = loadCanonicalJobs();
   saveCanonicalJobs(allJobs);
 
   return { allJobs, newJobsCount, updatedJobsCount };
 }
 
 // ----------------------------------------------------
-// Runs History Storage
+// Runs History Storage (SQLite Primary, JSON sync)
 // ----------------------------------------------------
 export function loadRunsHistory(): RunHistoryRecord[] {
-  ensureDirectories();
-  if (!fs.existsSync(RUNS_FILE)) {
-    return [];
+  try {
+    const rows = sqlite.prepare('SELECT * FROM runs ORDER BY started_at DESC').all() as any[];
+    if (rows && rows.length > 0) {
+      return rows.map(r => ({
+        id: r.id,
+        timestamp: r.started_at,
+        totalRawJobsFetched: r.jobs_seen_count || 0,
+        qualifyingJobsCount: r.new_jobs_count || 0,
+        sourcesChecked: r.sources_checked || 0,
+        status: (r.status as any) || 'completed',
+      }));
+    }
+  } catch (err) {
+    console.warn('[Storage] SQLite query failed for runs, falling back to runs.json:', err);
   }
+
+  if (!fs.existsSync(RUNS_FILE)) return [];
   try {
     const content = fs.readFileSync(RUNS_FILE, 'utf-8');
     return JSON.parse(content) as RunHistoryRecord[];
-  } catch (err) {
-    console.error('Failed to parse runs.json:', err);
+  } catch {
     return [];
   }
 }
 
 export function appendRunRecord(record: RunHistoryRecord): void {
+  try {
+    sqlite.prepare(`
+      INSERT OR REPLACE INTO runs (
+        id, started_at, finished_at, sources_checked, healthy_sources_count,
+        jobs_seen_count, new_jobs_count, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      record.id,
+      record.timestamp,
+      record.timestamp,
+      record.sourcesChecked || 0,
+      record.sourcesChecked || 0,
+      record.totalRawJobsFetched || 0,
+      record.qualifyingJobsCount || 0,
+      record.status || 'completed'
+    );
+  } catch (err) {
+    console.error('[Storage] Failed to append run to SQLite:', err);
+  }
+
   const runs = loadRunsHistory();
-  // prepend newest run
-  runs.unshift(record);
   ensureDirectories();
   fs.writeFileSync(RUNS_FILE, JSON.stringify(runs, null, 2), 'utf-8');
 }
 
 // ----------------------------------------------------
-// Rate Limiting & Backward Compatibility
+// Rate Limiting & Scan Management
 // ----------------------------------------------------
 export function checkManualScanRateLimit(): { allowed: boolean; remainingSeconds: number; lastScanTimestamp?: string } {
   ensureDirectories();
@@ -283,6 +444,8 @@ export function updateManualScanTimestamp(timestamp: string) {
 export async function saveScanResult(data: {
   timestamp: string;
   totalRawJobsFetched: number;
+  sourcesChecked?: number;
+  healthySourcesCount?: number;
   jobs: EvaluatedJob[];
 }): Promise<ScanRunData> {
   ensureDirectories();
@@ -291,31 +454,29 @@ export async function saveScanResult(data: {
   const formattedDate = now.toISOString().replace(/[:.]/g, '-');
   const scanId = `scan_${formattedDate}`;
 
+  const qualifyingCount = data.jobs.filter(j => j.score >= 70).length;
+
   const scanRecord: ScanRunData = {
     id: scanId,
     timestamp: data.timestamp,
     totalRawJobsFetched: data.totalRawJobsFetched,
-    qualifyingJobsCount: data.jobs.filter(j => j.score >= 70).length,
+    qualifyingJobsCount: qualifyingCount,
     jobs: data.jobs,
   };
 
-  const filePath = path.join(SCANS_DIR, `${scanId}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(scanRecord, null, 2), 'utf-8');
-
-  // Also upsert canonical jobs
+  // Upsert jobs into SQLite & JSON
   upsertCanonicalJobs(data.jobs);
 
-  // Also log into runs.json
+  // Log run in SQLite & runs.json with real sources checked
   appendRunRecord({
     id: scanId,
     timestamp: data.timestamp,
     totalRawJobsFetched: data.totalRawJobsFetched,
-    qualifyingJobsCount: scanRecord.qualifyingJobsCount,
-    sourcesChecked: 10,
+    qualifyingJobsCount: qualifyingCount,
+    sourcesChecked: data.sourcesChecked || 14,
     status: 'completed',
   });
 
-  // Update rate limit timestamp
   updateManualScanTimestamp(data.timestamp);
 
   return scanRecord;
@@ -323,72 +484,26 @@ export async function saveScanResult(data: {
 
 export async function listScanHistory(): Promise<Omit<ScanRunData, 'jobs'>[]> {
   const runs = loadRunsHistory();
-  if (runs.length > 0) {
-    return runs.map(r => ({
-      id: r.id,
-      timestamp: r.timestamp,
-      totalRawJobsFetched: r.totalRawJobsFetched,
-      qualifyingJobsCount: r.qualifyingJobsCount,
-    }));
-  }
-
-  ensureDirectories();
-  try {
-    const files = fs.readdirSync(SCANS_DIR).filter(f => f.endsWith('.json') && f !== 'rate_limit.json');
-    const historyList: Omit<ScanRunData, 'jobs'>[] = [];
-
-    for (const file of files) {
-      try {
-        const filePath = path.join(SCANS_DIR, file);
-        const rawContent = fs.readFileSync(filePath, 'utf-8');
-        const parsed = JSON.parse(rawContent) as ScanRunData;
-        if (parsed.id && parsed.timestamp) {
-          historyList.push({
-            id: parsed.id,
-            timestamp: parsed.timestamp,
-            totalRawJobsFetched: parsed.totalRawJobsFetched || 0,
-            qualifyingJobsCount: parsed.qualifyingJobsCount || 0,
-          });
-        }
-      } catch (e) {
-        console.error(`Failed to parse scan history file ${file}:`, e);
-      }
-    }
-
-    historyList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return historyList;
-  } catch (err) {
-    console.error('Failed to list scan history:', err);
-    return [];
-  }
+  return runs.map(r => ({
+    id: r.id,
+    timestamp: r.timestamp,
+    totalRawJobsFetched: r.totalRawJobsFetched,
+    qualifyingJobsCount: r.qualifyingJobsCount,
+  }));
 }
 
 export async function getScanById(scanId: string): Promise<ScanRunData | null> {
-  ensureDirectories();
-  const filePath = path.join(SCANS_DIR, `${scanId}.json`);
-
-  if (!fs.existsSync(filePath)) {
-    // If not found in scans dir, check if it's in runs and return canonical jobs
-    const runs = loadRunsHistory();
-    const match = runs.find(r => r.id === scanId);
-    if (match) {
-      const canonicalJobs = loadCanonicalJobs();
-      return {
-        id: match.id,
-        timestamp: match.timestamp,
-        totalRawJobsFetched: match.totalRawJobsFetched,
-        qualifyingJobsCount: match.qualifyingJobsCount,
-        jobs: canonicalJobs,
-      };
-    }
-    return null;
+  const runs = loadRunsHistory();
+  const match = runs.find(r => r.id === scanId);
+  if (match) {
+    const canonicalJobs = loadCanonicalJobs();
+    return {
+      id: match.id,
+      timestamp: match.timestamp,
+      totalRawJobsFetched: match.totalRawJobsFetched,
+      qualifyingJobsCount: match.qualifyingJobsCount,
+      jobs: canonicalJobs,
+    };
   }
-
-  try {
-    const rawContent = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(rawContent) as ScanRunData;
-  } catch (err) {
-    console.error(`Failed to read scan file ${scanId}:`, err);
-    return null;
-  }
+  return null;
 }

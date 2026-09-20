@@ -12,7 +12,8 @@
     "lint": "next lint",
     "scan": "node ./node_modules/tsx/dist/cli.mjs scripts/scheduler.ts --once",
     "worker": "node ./node_modules/tsx/dist/cli.mjs scripts/scheduler.ts",
-    "eval": "node ./node_modules/tsx/dist/cli.mjs scripts/eval-harness.ts"
+    "eval": "node ./node_modules/tsx/dist/cli.mjs scripts/eval-harness.ts",
+    "add-company": "node ./node_modules/tsx/dist/cli.mjs scripts/add-company.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

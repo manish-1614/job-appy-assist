@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Activity, BarChart2, TrendingUp, CheckCircle, Percent, Share2 } from 'lucide-react';
+import SkillGapPanel from './SkillGapPanel';
 
 interface FunnelInsightsProps {
   insights: {
@@ -154,6 +155,9 @@ export default function FunnelInsights({ insights }: FunnelInsightsProps) {
           </div>
         </div>
       </div>
+
+      {/* SKILL GAP ANALYZER PANEL */}
+      <SkillGapPanel />
     </div>
   );
 }

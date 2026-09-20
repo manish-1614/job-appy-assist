@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadCanonicalJobs } from '@/lib/storage';
 import { EvaluatedJob } from '@/lib/ats-adapters';
+import { applyEmployerDiversityCap } from '@/lib/diversity';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,14 +18,18 @@ export async function GET(req: NextRequest) {
     const distinct = searchParams.get('distinct') === 'true';
     const minScore = parseInt(searchParams.get('minScore') || '65', 10);
     const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const capDiversity = searchParams.get('capDiversity') === 'true';
 
     const jobs = loadCanonicalJobs();
 
     if (!distinct) {
+      const filtered = minScore > 0 ? jobs.filter(j => j.score >= minScore) : jobs;
+      const finalJobs = capDiversity ? applyEmployerDiversityCap(filtered, limit, 0.20) : filtered.slice(0, limit);
       return NextResponse.json({
         success: true,
-        count: jobs.length,
-        jobs,
+        count: finalJobs.length,
+        totalJobsCount: jobs.length,
+        jobs: finalJobs,
       });
     }
 

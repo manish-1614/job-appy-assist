@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { loadCompanies, addCompany, toggleCompany, CompanyConfig } from '@/lib/storage';
+import { detectAtsFromUrl } from '@/lib/ats-detector';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,10 +16,20 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, ats, slug, careersUrl, priority } = body;
+    let { name, ats, slug, careersUrl, priority } = body;
+
+    // Auto-detect ATS from careers URL if ats or slug is missing
+    if (careersUrl && (!ats || !slug)) {
+      const detected = await detectAtsFromUrl(careersUrl);
+      if (detected) {
+        ats = ats || detected.ats;
+        slug = slug || detected.slug;
+        name = name || detected.companyName;
+      }
+    }
 
     if (!name || !ats || !slug) {
-      return NextResponse.json({ success: false, error: 'name, ats, and slug are required' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'name, ats, and slug are required or could not be detected' }, { status: 400 });
     }
 
     const newCompany = addCompany({

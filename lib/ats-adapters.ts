@@ -3,7 +3,18 @@ import { checkJobDeduplication } from './dedup';
 import { passesDeterministicGate, evaluateWithHeuristics } from './ai-evaluator';
 import { loadCandidateProfile } from './storage';
 
-export type AtsType = 'greenhouse' | 'lever' | 'ashby' | 'smartrecruiters' | 'rss' | 'broadcast';
+export type AtsType =
+  | 'greenhouse'
+  | 'lever'
+  | 'ashby'
+  | 'smartrecruiters'
+  | 'workable'
+  | 'recruitee'
+  | 'hn'
+  | 'rss'
+  | 'tokyodev'
+  | 'japandev'
+  | 'broadcast';
 
 export interface RawJobPosting {
   externalId: string;
@@ -223,12 +234,132 @@ export async function fetchCompanyJobs(
         source: `Ashby ATS (${companyName})`,
         channelType: 'ats',
       }));
+    } else if (ats === 'workable') {
+      return await fetchWorkableJobs(slug, companyName);
+    } else if (ats === 'recruitee') {
+      return await fetchRecruiteeJobs(slug, companyName);
+    } else if (ats === 'hn') {
+      return await fetchHnJobs();
+    } else if (ats === 'tokyodev' || ats === 'japandev') {
+      return await fetchJapanKoreaJobs(ats, companyName);
     }
   } catch (err) {
     console.error(`Failed to fetch live jobs for ${companyName} via ${ats}:`, err);
   }
 
   return [];
+}
+
+export async function fetchWorkableJobs(slug: string, companyName: string): Promise<RawJobPosting[]> {
+  try {
+    const res = await fetch(`https://apply.workable.com/api/v1/widget/accounts/${slug}`, {
+      cache: 'no-store',
+      headers: { 'User-Agent': 'JobAppy-Portal/2.0 (Candidate-Discovery)' },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const jobsList = data.jobs || [];
+    return jobsList.map((j: any) => ({
+      externalId: String(j.shortcode || j.id),
+      company: data.name || companyName,
+      title: j.title,
+      location: j.telecommuting ? 'Remote' : (j.city ? `${j.city}, ${j.country || ''}` : (j.country || 'Remote')),
+      applyUrl: j.url || `https://apply.workable.com/${slug}/j/${j.shortcode}/`,
+      contentHtml: j.description || `${j.title} at ${companyName}`,
+      postedAt: j.created_at ? new Date(j.created_at).toISOString() : undefined,
+      source: `Workable ATS (${companyName})`,
+      channelType: 'ats',
+    }));
+  } catch (err: any) {
+    console.error(`Failed fetching Workable jobs for ${companyName}:`, err.message);
+    return [];
+  }
+}
+
+export async function fetchRecruiteeJobs(slug: string, companyName: string): Promise<RawJobPosting[]> {
+  try {
+    const res = await fetch(`https://${slug}.recruitee.com/api/offers/`, {
+      cache: 'no-store',
+      headers: { 'User-Agent': 'JobAppy-Portal/2.0 (Candidate-Discovery)' },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const offers = data.offers || [];
+    return offers.map((j: any) => ({
+      externalId: String(j.id),
+      company: companyName,
+      title: j.title,
+      location: j.remote ? 'Remote' : (j.location || j.city || 'Remote'),
+      applyUrl: j.careers_url || `https://${slug}.recruitee.com/o/${j.slug || j.id}`,
+      contentHtml: j.description || `${j.title} at ${companyName}`,
+      postedAt: j.published_at ? new Date(j.published_at).toISOString() : undefined,
+      source: `Recruitee ATS (${companyName})`,
+      channelType: 'ats',
+    }));
+  } catch (err: any) {
+    console.error(`Failed fetching Recruitee jobs for ${companyName}:`, err.message);
+    return [];
+  }
+}
+
+export async function fetchHnJobs(): Promise<RawJobPosting[]> {
+  try {
+    const searchRes = await fetch(
+      'https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&query=Who%20is%20hiring&hitsPerPage=1',
+      { signal: AbortSignal.timeout(6000) }
+    );
+    if (!searchRes.ok) return [];
+    const searchData = await searchRes.json();
+    const story = searchData.hits?.[0];
+    if (!story || !story.objectID) return [];
+
+    const commentsRes = await fetch(
+      `https://hn.algolia.com/api/v1/search?tags=comment,story_${story.objectID}&hitsPerPage=50`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!commentsRes.ok) return [];
+    const commentsData = await commentsRes.json();
+
+    const postings: RawJobPosting[] = [];
+    for (const c of commentsData.hits || []) {
+      const text = c.comment_text || '';
+      if (!text || text.length < 50) continue;
+
+      const lines = text.split(/<p>|\n/);
+      const header = lines[0].replace(/<[^>]+>/g, '').trim();
+      const parts = header.split('|').map((p: string) => p.trim());
+
+      const company = parts[0] || 'Tech Startup';
+      const title = parts[1] || 'Software Engineer';
+      const location = parts[2] || (text.toLowerCase().includes('remote') ? 'Remote' : 'Unknown');
+
+      postings.push({
+        externalId: String(c.objectID),
+        company: company.slice(0, 50),
+        title: title.slice(0, 70),
+        location: location.slice(0, 80),
+        applyUrl: `https://news.ycombinator.com/item?id=${c.objectID}`,
+        contentHtml: text,
+        postedAt: c.created_at ? new Date(c.created_at).toISOString() : undefined,
+        source: 'Hacker News (Who is Hiring)',
+        channelType: 'ats',
+      });
+    }
+
+    return postings;
+  } catch (err: any) {
+    console.error('Failed fetching Hacker News Who is Hiring:', err.message);
+    return [];
+  }
+}
+
+export async function fetchJapanKoreaJobs(type: 'tokyodev' | 'japandev', companyName: string): Promise<RawJobPosting[]> {
+  const feedUrl = type === 'tokyodev'
+    ? 'https://www.tokyodev.com/jobs.rss'
+    : 'https://japan-dev.com/rss.xml';
+  return await fetchRssJobs(feedUrl, companyName || (type === 'tokyodev' ? 'TokyoDev' : 'Japan Dev'));
 }
 
 export function evaluateRawJob(

@@ -158,7 +158,7 @@ export default function KitStudio({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-mono uppercase bg-cyan-500/20 text-cyan-300 px-2.5 py-0.5 rounded-full border border-cyan-500/30 font-bold">
+            <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-bold">
               Variant: {kit.variantId}
             </span>
             <span className="text-xs text-slate-400 font-mono">{company}</span>
@@ -171,7 +171,7 @@ export default function KitStudio({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleDownloadDocx}
-            className="px-3.5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-glow-cyan"
+            className="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-glow-emerald"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Download DOCX</span>
@@ -187,7 +187,7 @@ export default function KitStudio({
             href={gmailUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-xs font-mono font-bold flex items-center gap-1.5 transition-all"
+            className="px-3.5 py-2 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-glow-mint"
           >
             <Mail className="w-3.5 h-3.5" />
             <span>Gmail Draft ↗</span>

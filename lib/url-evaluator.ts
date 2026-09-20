@@ -1,7 +1,9 @@
 import * as cheerio from 'cheerio';
+import crypto from 'crypto';
 import { RawJobPosting, EvaluatedJob } from './ats-adapters';
-import { loadCandidateProfile, loadCanonicalJobs, saveCanonicalJobs } from './storage';
+import { loadCandidateProfile, loadCanonicalJobs, saveCanonicalJobs, upsertCanonicalJobs } from './storage';
 import { evaluateJobWithLLM, AiEvaluationResult } from './ai-evaluator';
+import { sqlite } from './db';
 
 export interface UrlEvaluationResponse {
   success: boolean;
@@ -154,7 +156,57 @@ export async function fetchJobFromUrl(targetUrl: string): Promise<RawJobPosting>
     }
   }
 
-  // 3. Universal Web HTML Scraper with Cheerio
+  // 3. Specialized Oracle Cloud / Taleo / CX Recruiting Handler (e.g. jobs.akamai.com)
+  if (hostname.includes('jobs.akamai.com') || pathname.includes('/sites/CX_') || pathname.includes('/job/')) {
+    const jobMatch = pathname.match(/\/job\/([0-9]+)/);
+    if (jobMatch) {
+      const reqId = jobMatch[1];
+      try {
+        const pageRes = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          },
+          cache: 'no-store',
+        });
+        if (pageRes.ok) {
+          const pageHtml = await pageRes.text();
+          const $ = cheerio.load(pageHtml);
+          const baseApiUrl = $('base').attr('data-apibaseurl') || 'https://fa-extu-saasfaprod1.fa.ocs.oraclecloud.com:443';
+          const apiUrl = `${baseApiUrl}/hcmRestApi/resources/latest/recruitingCEJobRequisitionDetails/${reqId}`;
+          const apiRes = await fetch(apiUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+              Accept: 'application/json',
+            },
+            cache: 'no-store',
+          });
+          if (apiRes.ok) {
+            const data = await apiRes.json();
+            const companyName = 'Akamai';
+            const descHtml = data.ExternalDescriptionStr || data.Description || '';
+            const $desc = cheerio.load(descHtml);
+            const cleanDesc = $desc.text().replace(/\s+/g, ' ').trim();
+            const locationStr = data.PrimaryLocation || (data.WorkplaceType ? `${data.WorkplaceType}` : 'Remote / Location Unstated');
+
+            return {
+              externalId: String(reqId),
+              company: companyName,
+              title: data.Title || 'Senior Software Engineer',
+              location: locationStr,
+              applyUrl: targetUrl,
+              contentHtml: cleanDesc || data.ExternalDescriptionStr || '',
+              source: `Oracle CX ATS (${companyName})`,
+              channelType: 'ats',
+            };
+          }
+        }
+      } catch (err: any) {
+        console.warn('Oracle CX API lookup failed, falling back to universal scraping:', err.message);
+      }
+    }
+  }
+
+  // 4. Universal Web HTML Scraper with Cheerio
   const res = await fetch(targetUrl, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -251,19 +303,21 @@ export async function evaluateTargetJobUrl(
       extractedCompanyName: raw.company
     };
 
-    let saved = false;
-    if (saveToJobs) {
-      const existingJobs = loadCanonicalJobs();
-      // Check if already exists by canonical URL
-      const existsIndex = existingJobs.findIndex(j => j.canonicalUrl === evaluatedJob.canonicalUrl);
-      if (existsIndex >= 0) {
-        existingJobs[existsIndex] = { ...existingJobs[existsIndex], ...evaluatedJob, id: existingJobs[existsIndex].id };
-      } else {
-        existingJobs.unshift(evaluatedJob);
+    // Auto-persist evaluated job into SQLite & JSON store so it is immediately ready for tailoring & tracking
+    upsertCanonicalJobs([evaluatedJob]);
+    if (raw.contentHtml) {
+      try {
+        const hash = crypto.createHash('sha256').update(raw.contentHtml).digest('hex');
+        sqlite.prepare(`
+          INSERT OR REPLACE INTO job_descriptions (job_id, description_text, content_hash, updated_at)
+          VALUES (?, ?, ?, ?)
+        `).run(evaluatedJob.id, raw.contentHtml, hash, new Date().toISOString());
+      } catch (e) {
+        console.warn('Could not persist JD text to job_descriptions:', e);
       }
-      saveCanonicalJobs(existingJobs);
-      saved = true;
     }
+
+    let saved = true;
 
     return {
       success: true,

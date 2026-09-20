@@ -7,6 +7,8 @@ import {
   type ApplicationStatus,
 } from '@/lib/applications';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }

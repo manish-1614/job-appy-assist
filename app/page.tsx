@@ -646,19 +646,19 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#0B0F19] text-slate-100 overflow-hidden font-sans">
+    <div className="flex h-screen w-full bg-[#060B08] text-emerald-50 overflow-hidden font-sans">
       
       {/* FROSTED GLASS SIDEBAR */}
-      <aside className="w-[280px] h-full glass-panel border-r border-white/10 p-6 flex flex-col justify-between z-20 shrink-0">
+      <aside className="w-[280px] h-full glass-panel border-r border-emerald-500/10 p-6 flex flex-col justify-between z-20 shrink-0">
         <div>
           {/* Brand Header */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-magenta-500 flex items-center justify-center shadow-glow-cyan">
-              <Briefcase className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-glow-emerald">
+              <Briefcase className="w-5 h-5 text-slate-950 font-bold" />
             </div>
             <div>
               <h1 className="font-bold text-lg tracking-tight text-white leading-none">JobAppy</h1>
-              <span className="text-xs text-neon-cyan font-mono tracking-wider">INTELLIGENCE v2.0</span>
+              <span className="text-xs text-emerald-400 font-mono tracking-wider font-semibold">INTELLIGENCE v2.0</span>
             </div>
           </div>
 
@@ -669,7 +669,7 @@ export default function Dashboard() {
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
                 activeTab === 'today' 
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-glow-amber font-bold' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  : 'text-slate-400 hover:text-white hover:bg-emerald-500/5'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -689,15 +689,15 @@ export default function Dashboard() {
               onClick={() => setActiveTab('fresh')}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
                 activeTab === 'fresh' 
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-glow-cyan' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-glow-emerald font-bold' 
+                  : 'text-slate-400 hover:text-white hover:bg-emerald-500/5'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 text-emerald-400" />
                 <span>Fresh (Last 24h)</span>
               </div>
-              <span className="bg-cyan-500/30 text-cyan-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
+              <span className="bg-emerald-500/30 text-emerald-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
                 {freshJobs.length}
               </span>
             </button>
@@ -706,15 +706,15 @@ export default function Dashboard() {
               onClick={() => setActiveTab('all')}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
                 activeTab === 'all' 
-                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-glow-magenta' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-glow-mint font-bold' 
+                  : 'text-slate-400 hover:text-white hover:bg-emerald-500/5'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Building2 className="w-4 h-4" />
+                <Building2 className="w-4 h-4 text-teal-400" />
                 <span>Top 50 Companies</span>
               </div>
-              <span className="bg-purple-500/30 text-purple-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
+              <span className="bg-teal-500/30 text-teal-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
                 {topDistinctCompanies.length}
               </span>
             </button>
@@ -723,15 +723,15 @@ export default function Dashboard() {
               onClick={() => setActiveTab('pipeline')}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
                 activeTab === 'pipeline' 
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-glow-cyan font-bold' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-glow-emerald font-bold' 
+                  : 'text-slate-400 hover:text-white hover:bg-emerald-500/5'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Layers className="w-4 h-4" />
+                <Layers className="w-4 h-4 text-emerald-400" />
                 <span>Pipeline (Kanban)</span>
               </div>
-              <span className="bg-cyan-500/30 text-cyan-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
+              <span className="bg-emerald-500/30 text-emerald-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
                 {applicationsList.length}
               </span>
             </button>
@@ -740,15 +740,15 @@ export default function Dashboard() {
               onClick={() => setActiveTab('insights')}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
                 activeTab === 'insights' 
-                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-glow-magenta font-bold' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-glow-mint font-bold' 
+                  : 'text-slate-400 hover:text-white hover:bg-emerald-500/5'
               }`}
             >
               <div className="flex items-center gap-3">
-                <BarChart2 className="w-4 h-4" />
+                <BarChart2 className="w-4 h-4 text-teal-400" />
                 <span>Funnel Analytics</span>
               </div>
-              <span className="text-purple-300 text-xs font-mono font-bold">
+              <span className="text-teal-300 text-xs font-mono font-bold">
                 {insightsData ? `${insightsData.responseRate}%` : '0%'}
               </span>
             </button>
@@ -841,8 +841,8 @@ export default function Dashboard() {
               cooldownRemaining > 0 
                 ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700' 
                 : isScanning
-                  ? 'bg-cyan-600/50 text-white cursor-wait'
-                  : 'bg-gradient-to-r from-cyan-500 via-purple-600 to-magenta-500 hover:from-cyan-400 hover:to-magenta-400 text-white shadow-cyan-500/25 active:scale-95'
+                  ? 'bg-emerald-600/50 text-white cursor-wait'
+                  : 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold shadow-glow-emerald active:scale-95'
             }`}
           >
             {isScanning ? (
@@ -929,13 +929,13 @@ export default function Dashboard() {
         <section className="glass-panel p-5 rounded-3xl border border-white/10 bg-slate-900/40 shadow-2xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 via-purple-600 to-magenta-500 flex items-center justify-center shadow-glow-cyan shrink-0">
-                <Compass className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-glow-emerald shrink-0">
+                <Compass className="w-5 h-5 text-slate-950 font-bold" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold text-white tracking-tight">Evaluate Any Job Opening URL</h3>
-                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold">
+                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
                     Instant Fit Match
                   </span>
                 </div>
@@ -971,7 +971,7 @@ export default function Dashboard() {
                   setManualUrl(e.target.value);
                   if (evalError) setEvalError(null);
                 }}
-                className="w-full bg-slate-950/80 border border-white/10 rounded-2xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/40 transition-all font-mono"
+                className="w-full bg-slate-950/80 border border-emerald-500/15 rounded-2xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40 transition-all font-mono"
                 required
               />
             </div>
@@ -979,7 +979,7 @@ export default function Dashboard() {
             <button
               type="submit"
               disabled={isEvaluatingUrl || !manualUrl.trim()}
-              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-purple-600 to-magenta-500 hover:from-cyan-400 hover:to-magenta-400 disabled:opacity-50 text-white font-semibold text-sm flex items-center gap-2 shadow-glow-cyan active:scale-95 transition-all shrink-0"
+              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-50 text-white font-semibold text-sm flex items-center gap-2 shadow-glow-emerald active:scale-95 transition-all shrink-0"
             >
               {isEvaluatingUrl ? (
                 <>
@@ -1100,12 +1100,12 @@ export default function Dashboard() {
 
               {/* Action Buttons: Navigate to URL & Save to Tracker */}
               <div className="flex items-center justify-between pt-3 border-t border-white/10 flex-wrap gap-3">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <a
                     href={manualEvalResult.evaluatedJob.canonicalUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-medium text-xs flex items-center gap-2 shadow-glow-cyan transition-all"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium text-xs flex items-center gap-2 shadow-glow-emerald transition-all"
                   >
                     <span>Open Job Opening Directly</span>
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -1116,6 +1116,14 @@ export default function Dashboard() {
                     className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-medium text-xs flex items-center gap-1.5 transition-all border border-white/10"
                   >
                     <span>Inspect Full Breakdown</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowKitModalJob(manualEvalResult.evaluatedJob!)}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs font-mono flex items-center gap-1.5 shadow-glow-emerald transition-all active:scale-95"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+                    <span>Tailor Application Kit ↗</span>
                   </button>
                 </div>
 
@@ -1949,9 +1957,9 @@ export default function Dashboard() {
               {/* APPLICATION KIT STUDIO BUTTON (Phase 4) */}
               <button
                 onClick={() => setShowKitModalJob(selectedJob)}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-purple-600 to-magenta-500 hover:from-cyan-400 hover:to-magenta-400 text-white font-bold text-xs font-mono flex items-center justify-center gap-2 shadow-glow-cyan transition-all active:scale-95"
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs font-mono flex items-center justify-center gap-2 shadow-glow-emerald transition-all active:scale-95"
               >
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 text-slate-950" />
                 <span>Tailor Application Kit (Resume &amp; Cover Letter) ↗</span>
               </button>
 
@@ -2054,7 +2062,7 @@ export default function Dashboard() {
                 href={selectedJob.canonicalUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-magenta-500 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-glow-cyan hover:opacity-95 transition-opacity"
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-glow-emerald hover:opacity-95 transition-opacity"
               >
                 <span>Apply Directly at Employer ATS</span>
                 <ExternalLink className="w-4 h-4" />
@@ -2136,7 +2144,7 @@ export default function Dashboard() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-magenta-500 text-white text-xs font-semibold shadow-glow-cyan"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-semibold shadow-glow-emerald"
                 >
                   Save Source
                 </button>

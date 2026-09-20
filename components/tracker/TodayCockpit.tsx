@@ -65,15 +65,15 @@ export default function TodayCockpit({
   return (
     <div className="space-y-6">
       {/* 1. WEEKLY APPLICATION GOAL BANNER (D11) */}
-      <div className="glass-panel p-6 rounded-3xl border border-cyan-500/30 bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950/40 relative overflow-hidden shadow-2xl">
+      <div className="glass-panel p-6 rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-[#060B08] via-[#0B140F] to-emerald-950/40 relative overflow-hidden shadow-2xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                <Target className="w-4 h-4 text-cyan-400" />
+              <span className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <Target className="w-4 h-4 text-emerald-400" />
               </span>
               <h3 className="text-base font-bold text-white tracking-tight">Weekly Application Goal (D11)</h3>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
                 10 TARGET / WEEK
               </span>
             </div>
@@ -85,7 +85,7 @@ export default function TodayCockpit({
           <div className="flex items-baseline gap-2 shrink-0">
             <span className="text-3xl font-extrabold font-mono text-white">{weeklyGoal.completed}</span>
             <span className="text-sm font-mono text-slate-400">/ {weeklyGoal.target} sent</span>
-            <span className="text-xs font-mono font-bold text-cyan-400 ml-2">
+            <span className="text-xs font-mono font-bold text-emerald-400 ml-2">
               ({weeklyGoal.percent}%)
             </span>
           </div>
@@ -94,7 +94,7 @@ export default function TodayCockpit({
         {/* Progress bar */}
         <div className="mt-4 w-full h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/10">
           <div
-            className="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-emerald-400 rounded-full transition-all duration-500"
+            className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 rounded-full transition-all duration-500 shadow-glow-emerald"
             style={{ width: `${Math.min(100, weeklyGoal.percent)}%` }}
           ></div>
         </div>

@@ -31,7 +31,7 @@ export default function FunnelInsights({ insights }: FunnelInsightsProps) {
     <div className="space-y-6">
       {/* HEADER */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500 to-cyan-500 flex items-center justify-center text-white shadow-glow-magenta">
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold shadow-glow-emerald">
           <BarChart2 className="w-5 h-5" />
         </div>
         <div>
@@ -44,15 +44,15 @@ export default function FunnelInsights({ insights }: FunnelInsightsProps) {
 
       {/* TOP KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-1">
+        <div className="glass-panel p-5 rounded-2xl border border-emerald-500/10 space-y-1">
           <span className="text-xs font-mono text-slate-400 uppercase">Total Opportunities Tracked</span>
           <div className="text-2xl font-extrabold font-mono text-white">{totalTracked}</div>
           <span className="text-[11px] text-slate-500 font-mono">Pipeline inventory</span>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-1">
-          <span className="text-xs font-mono text-cyan-400 uppercase">Applications Dispatched</span>
-          <div className="text-2xl font-extrabold font-mono text-cyan-300">{appliedOrBeyond}</div>
+        <div className="glass-panel p-5 rounded-2xl border border-emerald-500/10 space-y-1">
+          <span className="text-xs font-mono text-emerald-400 uppercase">Applications Dispatched</span>
+          <div className="text-2xl font-extrabold font-mono text-emerald-300">{appliedOrBeyond}</div>
           <span className="text-[11px] text-slate-500 font-mono">Sent past saved stage</span>
         </div>
 

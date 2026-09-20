@@ -10,6 +10,7 @@ import {
 } from './types';
 import { validateResumeBullet, validateCoverLetter, validateSkillCoverage } from './validator';
 import { sqlite } from '../db';
+import { loadCanonicalJobs, upsertCanonicalJobs } from '../storage';
 
 const KIT_DIR = path.resolve(process.cwd(), 'data', 'kit');
 const ACHIEVEMENTS_FILE = path.join(KIT_DIR, 'achievements.json');
@@ -92,7 +93,7 @@ export function tailorApplicationKit(jobId: string): TailoredApplicationKit {
   const achMap = new Map(achievements.map((a) => [a.id, a]));
 
   // 1. Fetch job facts from SQLite
-  const jobRow = sqlite
+  let jobRow = sqlite
     .prepare(
       `SELECT j.*, d.description_text, e.extracted_json
        FROM jobs j
@@ -101,6 +102,23 @@ export function tailorApplicationKit(jobId: string): TailoredApplicationKit {
        WHERE j.id = ?`
     )
     .get(jobId) as any;
+
+  if (!jobRow) {
+    const all = loadCanonicalJobs();
+    const match = all.find((j) => j.id === jobId);
+    if (match) {
+      upsertCanonicalJobs([match]);
+      jobRow = sqlite
+        .prepare(
+          `SELECT j.*, d.description_text, e.extracted_json
+           FROM jobs j
+           LEFT JOIN job_descriptions d ON j.id = d.job_id
+           LEFT JOIN job_extractions e ON j.id = e.job_id
+           WHERE j.id = ?`
+        )
+        .get(jobId) as any;
+    }
+  }
 
   if (!jobRow) {
     throw new Error(`Job ${jobId} not found in database`);

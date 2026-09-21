@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 /**
  * Sources table - ATS employer boards and RSS feeds
@@ -168,5 +168,78 @@ export const jobLabels = sqliteTable('job_labels', {
   reasonCode: text('reason_code').notNull(), // 'good_match' | 'bad_stack' | 'not_remote' | 'bad_location' | 'overqualified' | 'underqualified' | 'low_comp' | 'presales_heavy' | 'other'
   notes: text('notes'),
   labeledAt: text('labeled_at').notNull(),
+});
+
+/**
+ * Mock-Interview Module Tables (Phase 3)
+ */
+export const interviewSessions = sqliteTable('interview_sessions', {
+  id: text('id').primaryKey(),
+  startedAt: text('started_at').notNull(),
+  endedAt: text('ended_at'),
+  companyStyle: text('company_style').notNull(), // 'google' | 'toptal'
+  roundType: text('round_type').notNull(), // 'system_design' | 'advanced_dsa_cpp' | 'behavioral' | 'communication'
+  questionId: text('question_id').notNull(),
+  liveModel: text('live_model').notNull(),
+  status: text('status').notNull().default('active'), // 'active' | 'completed' | 'aborted'
+  configJson: text('config_json'),
+  costUsdEst: real('cost_usd_est').default(0),
+  costInrEst: real('cost_inr_est').default(0),
+}, (table) => ({
+  statusIdx: index('interview_sessions_status_idx').on(table.status),
+  startedAtIdx: index('interview_sessions_started_at_idx').on(table.startedAt),
+}));
+
+export const interviewTurns = sqliteTable('interview_turns', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  sessionId: text('session_id').notNull().references(() => interviewSessions.id, { onDelete: 'cascade' }),
+  seq: integer('seq').notNull(),
+  speaker: text('speaker').notNull(), // 'candidate' | 'interviewer' | 'system'
+  text: text('text').notNull(),
+  tOffsetMs: integer('t_offset_ms').notNull(),
+  source: text('source').notNull().default('audio_transcript'), // 'audio_transcript' | 'internal'
+}, (table) => ({
+  sessionSeqIdx: index('interview_turns_session_seq_idx').on(table.sessionId, table.seq),
+}));
+
+export const interviewEvents = sqliteTable('interview_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  sessionId: text('session_id').notNull().references(() => interviewSessions.id, { onDelete: 'cascade' }),
+  tOffsetMs: integer('t_offset_ms').notNull(),
+  kind: text('kind').notNull(), // 'snapshot' | 'observer_read' | 'interjection' | 'hint_rung' | 'error' | 'goaway' | 'resume'
+  payloadJson: text('payload_json'),
+}, (table) => ({
+  sessionKindIdx: index('interview_events_session_kind_idx').on(table.sessionId, table.kind),
+}));
+
+export const interviewSnapshots = sqliteTable('interview_snapshots', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  sessionId: text('session_id').notNull().references(() => interviewSessions.id, { onDelete: 'cascade' }),
+  tOffsetMs: integer('t_offset_ms').notNull(),
+  kind: text('kind').notNull(), // 'code' | 'diagram'
+  contentHash: text('content_hash').notNull(),
+  contentText: text('content_text').notNull(),
+}, (table) => ({
+  sessionHashIdx: index('interview_snapshots_session_hash_idx').on(table.sessionId, table.contentHash),
+}));
+
+export const interviewScores = sqliteTable('interview_scores', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  sessionId: text('session_id').notNull().references(() => interviewSessions.id, { onDelete: 'cascade' }),
+  dimension: text('dimension').notNull(),
+  score: real('score').notNull(),
+  evidenceJson: text('evidence_json'),
+  graderModel: text('grader_model').notNull(),
+}, (table) => ({
+  sessionScoreIdx: index('interview_scores_session_idx').on(table.sessionId),
+}));
+
+export const interviewUsage = sqliteTable('interview_usage', {
+  sessionId: text('session_id').primaryKey().references(() => interviewSessions.id, { onDelete: 'cascade' }),
+  inputAudioTokens: integer('input_audio_tokens').notNull().default(0),
+  outputAudioTokens: integer('output_audio_tokens').notNull().default(0),
+  textIn: integer('text_in').notNull().default(0),
+  textOut: integer('text_out').notNull().default(0),
+  costUsdEst: real('cost_usd_est').notNull().default(0),
 });
 

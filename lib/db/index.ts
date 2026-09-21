@@ -161,6 +161,71 @@ export function initDb() {
       notes TEXT,
       labeled_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS interview_sessions (
+      id TEXT PRIMARY KEY,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      company_style TEXT NOT NULL,
+      round_type TEXT NOT NULL,
+      question_id TEXT NOT NULL,
+      live_model TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      config_json TEXT,
+      cost_usd_est REAL DEFAULT 0,
+      cost_inr_est REAL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS interview_sessions_status_idx ON interview_sessions (status);
+    CREATE INDEX IF NOT EXISTS interview_sessions_started_at_idx ON interview_sessions (started_at);
+
+    CREATE TABLE IF NOT EXISTS interview_turns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES interview_sessions(id) ON DELETE CASCADE,
+      seq INTEGER NOT NULL,
+      speaker TEXT NOT NULL,
+      text TEXT NOT NULL,
+      t_offset_ms INTEGER NOT NULL,
+      source TEXT NOT NULL DEFAULT 'audio_transcript'
+    );
+    CREATE INDEX IF NOT EXISTS interview_turns_session_seq_idx ON interview_turns (session_id, seq);
+
+    CREATE TABLE IF NOT EXISTS interview_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES interview_sessions(id) ON DELETE CASCADE,
+      t_offset_ms INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      payload_json TEXT
+    );
+    CREATE INDEX IF NOT EXISTS interview_events_session_kind_idx ON interview_events (session_id, kind);
+
+    CREATE TABLE IF NOT EXISTS interview_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES interview_sessions(id) ON DELETE CASCADE,
+      t_offset_ms INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      content_text TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS interview_snapshots_session_hash_idx ON interview_snapshots (session_id, content_hash);
+
+    CREATE TABLE IF NOT EXISTS interview_scores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES interview_sessions(id) ON DELETE CASCADE,
+      dimension TEXT NOT NULL,
+      score REAL NOT NULL,
+      evidence_json TEXT,
+      grader_model TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS interview_scores_session_idx ON interview_scores (session_id);
+
+    CREATE TABLE IF NOT EXISTS interview_usage (
+      session_id TEXT PRIMARY KEY REFERENCES interview_sessions(id) ON DELETE CASCADE,
+      input_audio_tokens INTEGER NOT NULL DEFAULT 0,
+      output_audio_tokens INTEGER NOT NULL DEFAULT 0,
+      text_in INTEGER NOT NULL DEFAULT 0,
+      text_out INTEGER NOT NULL DEFAULT 0,
+      cost_usd_est REAL NOT NULL DEFAULT 0
+    );
   `);
 
   // Ensure Phase 2 columns exist on jobs table

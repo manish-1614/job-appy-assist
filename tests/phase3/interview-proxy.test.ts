@@ -81,6 +81,7 @@ describe('Phase 3: Mock-Interview Proxy & Protocol Suite', () => {
           budgetRemainingInr: 14900,
           percentUsed: 0.67,
           warningLevel: 'none',
+          allowed: true,
         },
       };
 

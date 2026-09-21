@@ -8,7 +8,8 @@ import {
   ShieldCheck, 
   UserCheck, 
   Activity,
-  Compass
+  Compass,
+  Bot
 } from 'lucide-react';
 
 export type TabId = 
@@ -56,6 +57,14 @@ export const SIDEBAR_NAV_ITEMS: SidebarNavItem[] = [
     shortLabel: 'Evaluate URL',
     icon: Compass,
     activeClass: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-glow-emerald font-bold',
+  },
+  {
+    id: 'interview',
+    href: '/interview',
+    label: 'Mock Interview (Voice)',
+    shortLabel: 'Interview',
+    icon: Bot,
+    activeClass: 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-glow-purple font-bold',
   },
   {
     id: 'all',

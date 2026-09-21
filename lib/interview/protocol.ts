@@ -9,6 +9,7 @@ export interface BudgetInfo {
   budgetRemainingInr: number;
   percentUsed: number;
   warningLevel: 'none' | 'info' | 'warning' | 'critical' | 'blocked';
+  allowed: boolean;
 }
 
 export interface SessionUsageInfo {

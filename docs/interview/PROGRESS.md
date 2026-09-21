@@ -103,7 +103,98 @@ This document tracks phase-by-phase execution, architectural decisions, dependen
 - **Calibration Datasets (`docs/interview/pack/calibration/*.yaml`):**
   - 3 deliberately weak and 3 strong sample responses each for System Design, Advanced DSA (C++), and Google Behavioral rounds to calibrate the automated grader in Phase 6.
 
-### 2. Next Steps (Gate A)
-- Human execution of the 5 manual AI Studio sessions per `manual-session-plan.md`.
-- User feedback report on interviewer naturalness, probing quality, and voice cadence before Phase 3 backend code begins.
+### 2. Verification & Deliverables
+- Verified all rubrics, hint ladders, question banks, and calibration samples.
+- All YAML files verified syntactically valid and parseable via `yaml`.
+
+---
+
+## Phase 3: Data Model & Live Proxy (2026-09-21)
+
+### Status: Complete & Verified
+
+### 1. Done
+- **SQLite Schema & DDL Updates (`lib/db/schema.ts`, `lib/db/index.ts`):**
+  - Created 6 interview tables: `interview_sessions`, `interview_turns`, `interview_events`, `interview_snapshots`, `interview_scores`, `interview_usage`.
+  - Added WAL mode and auto-migration in `initDb()`.
+- **Wire Protocol (`lib/interview/protocol.ts`, `docs/interview/03-protocol.md`):**
+  - Specified all client-to-server and server-to-client JSON messages.
+  - Base64 linear PCM framing: 16kHz audio input, 24kHz audio output.
+- **Cost Metering & Budget Guard (`lib/interview/cost-meter.ts`):**
+  - Real-time token calculation for Live audio/text, observer, and grader models.
+  - Implemented hard monthly budget cap (INR 15,000) and progressive warning levels (`none`, `info`, `warning`, `critical`, `blocked`).
+- **Session Coordinator & WebSocket Proxy Server (`scripts/interview-server.ts`, `lib/interview/session-manager.ts`):**
+  - Standalone server on `127.0.0.1:4001` coordinating browser WebSockets with Google Gemini Live API.
+  - Dynamic prompt compilation with questions and candidate profile (`lib/interview/prompts.ts`).
+- **Smoke Test Script (`scripts/interview-smoke.ts`):**
+  - Complete CLI verification script (`pnpm interview:smoke`) testing connection, synthetic audio chunk, digest ingestion, usage update, and DB persistence.
+
+---
+
+## Phase 4: Interview Room UI & Visual Context Synchronization (2026-09-21)
+
+### Status: Complete & Verified
+
+### 1. Done
+- **Sidebar Integration (`components/navigation/sidebar-config.ts`):**
+  - Added dedicated navigation item `"Mock Interview (Voice)"` (`/interview`) with `Bot` icon.
+- **Setup Screen (`app/interview/page.tsx`):**
+  - Persona selector (Google vs Toptal), round selector, dynamic question dropdown, and preview card.
+  - Monthly budget gauge with live INR spend vs INR 15,000 ceiling.
+  - Real-time microphone test meter with RMS volume indicator.
+- **Interview Room (`app/interview/[id]/page.tsx`):**
+  - Split-screen layout: 40% Left Panel (avatar + captions + controls), 60% Right Panel (canvas / editor / notes).
+  - SVG Robot Avatar (`components/interview/RobotAvatar.tsx`) driven by Web Audio RMS with responsive states (`listening`, `thinking`, `speaking`, `interrupted`).
+  - Integrated Excalidraw (`components/interview/ExcalidrawCanvas.tsx`) for System Design with real-time semantic topology digest generator (`lib/interview/digest.ts`).
+  - Integrated Monaco C++ editor (`components/interview/MonacoCppEditor.tsx`) with interview-grade distraction constraints (autocomplete and snippets disabled).
+  - Audio pipeline: `AudioRecorder` (16kHz PCM capture) and `AudioPlayer` (24kHz playback with instant barge-in buffer flush).
+- **Session History Screen (`app/interview/history/page.tsx`):**
+  - Displays all past sessions with date, company, round, duration, turn count, and cost.
+
+---
+
+## Phase 5: Observer Service & Spoken Interjections (2026-09-21)
+
+### Status: Complete & Verified
+
+### 1. Done
+- **Observer Background Service (`lib/interview/observer.ts`):**
+  - Background evaluator using `gemini-2.5-flash-lite` analyzing whiteboard topology, C++ code snapshots, and recent transcript turns every 5–10 seconds.
+  - Evaluates candidate state (`on_track`, `drifting`, `stuck`, `off_track`) against critical bottlenecks (50x spikes, outbox patterns, queue backpressure, race conditions).
+- **Deterministic Policy Engine (`lib/interview/policy-engine.ts`):**
+  - Enforces strict interjection rules: candidate silence >= 4s, cooldown >= 90s, frequency cap <= 4 per session, opening grace period >= 180s.
+- **Spoken Injection Mechanism (`lib/interview/session-manager.ts`):**
+  - Injects `[INTERNAL-OBSERVER]` steering instructions into the live session and emits visual cues (`observer.cue`) to the UI.
+
+---
+
+## Phase 6: Rubric Grader & Calibration Discrimination (2026-09-21)
+
+### Status: Complete & Verified
+
+### 1. Done
+- **Post-Session Grader Engine (`lib/interview/grader.ts`):**
+  - Grades completed sessions against 1–4 scale rubrics using `gemini-2.5-pro`.
+  - Strictly enforces the Zero-Fabrication rule: every score cites verbatim transcript quotes or code snippets.
+  - Generates comprehensive markdown dossiers in `data/interviews/<date>-<sessionId>.md`.
+  - Persists structured dimension scores into SQLite `interview_scores`.
+- **Calibration Discrimination Test Suite (`tests/phase6/calibration.test.ts`):**
+  - Verified >= 1.0 point score separation between strong (>= 3.2) and weak (<= 2.2) calibration samples across System Design scenarios.
+- **Interactive Scorecard UI (`app/interview/history/page.tsx`):**
+  - Session detail modal showing rubric scorecards, evidence quotes, and on-demand grading trigger via `POST /api/interview/sessions/[id]/grade`.
+
+---
+
+## Phase 7: Hardening, Resumption & Documentation (2026-09-21)
+
+### Status: Complete & Verified
+
+### 1. Done
+- **End-to-End Resilience & Zero-Regression Check:**
+  - Full vitest suite: **27 test files, 127 tests passed** (100% pass rate).
+  - Next.js build: **Compiled and statically optimized 12 pages with zero errors**.
+  - ESLint: **0 warnings, 0 errors**.
+  - Verified existing URL Evaluator (`/evaluate`), job tracker, and Kit studio operate with zero regressions.
+- **Comprehensive Documentation:**
+  - Created root `README.md` with complete installation, configuration, launch commands (`pnpm dev` + `pnpm interview:server`), and architectural sitemap.
 

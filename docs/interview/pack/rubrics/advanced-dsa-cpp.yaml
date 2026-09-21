@@ -1,70 +1,70 @@
 round_type: advanced_dsa_cpp
 scale:
-  1: Clear Fail (Cannot write syntactically sound C++, struggles with basic algorithms, ignores complexity)
-  2: Borderline (Writes functional brute-force code; needs multiple hints to reach optimal approach; buggy edge cases)
-  3: Hire (Identifies optimal approach quickly, writes clean idiomatic C++, analyzes time/space accurately, tests systematically)
-  4: Strong Hire (Flawless problem deconstruction, immediate optimal pattern recognition, pristine modern C++ with zero memory/UB issues, verifies edge cases proactively)
+  1: "Clear Fail (Cannot write syntactically sound C++, struggles with basic algorithms, ignores complexity)"
+  2: "Borderline (Writes functional brute-force code; needs multiple hints to reach optimal approach; buggy edge cases)"
+  3: "Hire (Identifies optimal approach quickly, writes clean idiomatic C++, analyzes time/space accurately, tests systematically)"
+  4: "Strong Hire (Flawless problem deconstruction, immediate optimal pattern recognition, pristine modern C++ with zero memory/UB issues, verifies edge cases proactively)"
 
 dimensions:
   - id: problem_understanding_and_clarification
     name: Problem Clarification & Constraint Analysis
     weight: 0.12
     anchors:
-      1: Starts coding immediately without checking input constraints (N size, values range, negative numbers, empty arrays).
-      2: Asks a few questions but misses crucial bounds that determine algorithm feasibility (e.g. N <= 10^5 implies O(N log N)).
-      3: Systematically verifies input ranges, memory limits, duplicate presence, and expected return format before proposing approaches.
-      4: Deduces algorithm class immediately from constraint bounds; frames clarifying edge cases that expose hidden problem nuances.
+      1: "Starts coding immediately without checking input constraints (N size, values range, negative numbers, empty arrays)."
+      2: "Asks a few questions but misses crucial bounds that determine algorithm feasibility (e.g. N <= 10^5 implies O(N log N))."
+      3: "Systematically verifies input ranges, memory limits, duplicate presence, and expected return format before proposing approaches."
+      4: "Deduces algorithm class immediately from constraint bounds; frames clarifying edge cases that expose hidden problem nuances."
 
   - id: pattern_recognition_and_optimization
     name: Pattern Recognition & Algorithmic Strategy
     weight: 0.18
     anchors:
-      1: Fixates on an incorrect paradigm (e.g. greedy when DP is required) and cannot adjust even after contradictions.
-      2: States brute force (e.g. O(N^2) or exponential) but requires explicit guidance to recognize optimal data structure.
-      3: Outlines brute force, explains why it TLEs, and cleanly transitions to optimal approach (e.g. monotonic stack, binary search on answer, interval DP).
-      4: Evaluates multiple optimal candidate approaches, articulates trade-offs (e.g., segment tree vs Fenwick tree vs sqrt decomposition), and selects the most robust.
+      1: "Fixates on an incorrect paradigm (e.g. greedy when DP is required) and cannot adjust even after contradictions."
+      2: "States brute force (e.g. O(N^2) or exponential) but requires explicit guidance to recognize optimal data structure."
+      3: "Outlines brute force, explains why it TLEs, and cleanly transitions to optimal approach (e.g. monotonic stack, binary search on answer, interval DP)."
+      4: "Evaluates multiple optimal candidate approaches, articulates trade-offs (e.g., segment tree vs Fenwick tree vs sqrt decomposition), and selects the most robust."
 
   - id: complexity_analysis
     name: Time & Space Complexity Analysis
     weight: 0.10
     anchors:
-      1: Incorrect Big-O expressions (e.g. claims nested loop with halving step is O(N^2)).
-      2: Correct time complexity after prompting; forgets auxiliary stack space in recursion or hidden allocations in STL copies.
-      3: Accurately derives tight asymptotic bounds for both time and space upfront, including recursion depth and hash-table resizing.
-      4: Formal mathematical proof or amortized analysis (e.g. monotonic queue two-pointer amortized O(N), union-find with inverse Ackermann).
+      1: "Incorrect Big-O expressions (e.g. claims nested loop with halving step is O(N^2))."
+      2: "Correct time complexity after prompting; forgets auxiliary stack space in recursion or hidden allocations in STL copies."
+      3: "Accurately derives tight asymptotic bounds for both time and space upfront, including recursion depth and hash-table resizing."
+      4: "Formal mathematical proof or amortized analysis (e.g. monotonic queue two-pointer amortized O(N), union-find with inverse Ackermann)."
 
   - id: edge_cases_and_dry_run
     name: Edge Case Handling & Systematic Dry Run
     weight: 0.15
     anchors:
-      1: Code crashes on empty input, single element, or all identical elements; never runs manual dry test.
-      2: Mentions edge cases only after being prompted by the interviewer; dry runs passively by skimming code.
-      3: Explicitly enumerates empty/null, single-item, duplicates, extreme values (INT_MAX/MIN), and walks step-by-step through a concrete dry run before declaring done.
-      4: Constructs adversarial test cases that stress off-by-one indices, binary search bounds, or integer overflow triggers.
+      1: "Code crashes on empty input, single element, or all identical elements; never runs manual dry test."
+      2: "Mentions edge cases only after being prompted by the interviewer; dry runs passively by skimming code."
+      3: "Explicitly enumerates empty/null, single-item, duplicates, extreme values (INT_MAX/MIN), and walks step-by-step through a concrete dry run before declaring done."
+      4: "Constructs adversarial test cases that stress off-by-one indices, binary search bounds, or integer overflow triggers."
 
   - id: cpp_idiom_and_correctness
     name: Modern C++ Idiom, Correctness & Memory Safety
     weight: 0.25
     anchors:
-      1: C-style pointers with memory leaks; vector pass-by-value in recursive calls; undefined behavior; iterator invalidation.
-      2: Compilable C++ with anti-patterns (e.g. unnecessary `new`, raw arrays, pass-by-value for large strings/vectors, unsigned integer subtraction underflow).
-      3: Idiomatic modern C++ (C++17/20): pass-by-const-reference, `std::string_view` where appropriate, proper STL container selection (`unordered_map` vs `map`), `auto`, `size_t` precautions.
-      4: Master-class C++: emplace operations, move semantics, prevents integer overflow via `long long` casts, avoids iterator invalidation during mutation, exception-safe code.
+      1: "C-style pointers with memory leaks; vector pass-by-value in recursive calls; undefined behavior; iterator invalidation."
+      2: "Compilable C++ with anti-patterns (e.g. unnecessary `new`, raw arrays, pass-by-value for large strings/vectors, unsigned integer subtraction underflow)."
+      3: "Idiomatic modern C++ (C++17/20): pass-by-const-reference, `std::string_view` where appropriate, proper STL container selection (`unordered_map` vs `map`), `auto`, `size_t` precautions."
+      4: "Master-class C++: emplace operations, move semantics, prevents integer overflow via `long long` casts, avoids iterator invalidation during mutation, exception-safe code."
 
   - id: code_cleanliness_and_structure
     name: Code Cleanliness, Modularity & Naming
     weight: 0.10
     anchors:
-      1: Single 80-line monolithic function with single-letter confusing variables (`a`, `b`, `t1`, `x2`), copy-pasted logic.
-      2: Functional but messy code with inconsistent indentation, awkward nested ternaries, and redundant conditions.
-      3: Clean, readable helper functions, descriptive variable naming (`leftBoundary`, `windowSum`), concise logic without dead branches.
-      4: Production-grade interview code: modular, well-commented algorithmic invariants, clean early returns, zero code duplication.
+      1: "Single 80-line monolithic function with single-letter confusing variables (`a`, `b`, `t1`, `x2`), copy-pasted logic."
+      2: "Functional but messy code with inconsistent indentation, awkward nested ternaries, and redundant conditions."
+      3: "Clean, readable helper functions, descriptive variable naming (`leftBoundary`, `windowSum`), concise logic without dead branches."
+      4: "Production-grade interview code: modular, well-commented algorithmic invariants, clean early returns, zero code duplication."
 
   - id: hints_used_penalty
     name: Hint Independence & Guidance Dependency
     weight: 0.10
     anchors:
-      1: Required Rung 3 (algorithm outline) or Rung 4 (concrete step) to make any progress.
-      2: Required Rung 2 (technique class named) and multiple follow-up nudges on logic.
-      3: Solved independently or required at most one Rung 1 nudge (subtle constraint observation).
-      4: Completely autonomous (Rung 0: candidate drove entire solution, clarified constraints, and self-corrected minor bugs).
+      1: "Required Rung 3 (algorithm outline) or Rung 4 (concrete step) to make any progress."
+      2: "Required Rung 2 (technique class named) and multiple follow-up nudges on logic."
+      3: "Solved independently or required at most one Rung 1 nudge (subtle constraint observation)."
+      4: "Completely autonomous (Rung 0: candidate drove entire solution, clarified constraints, and self-corrected minor bugs)."

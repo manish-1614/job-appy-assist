@@ -1,52 +1,52 @@
 round_type: behavioral_google
 scale:
-  1: Clear Fail (Vague generalities, takes sole credit or blames others, defensive, lacks concrete metrics)
-  2: Weak / Neutral (Generic stories lacking senior scope; describes what team did rather than individual leadership; weak reflections)
-  3: Hire (Structured STAR format, clear ownership of technical and interpersonal complexity, quantifiable impact, humble self-reflection)
-  4: Strong Hire (Exemplary senior leadership: navigates deep ambiguity, influences across teams without authority, drives systemic post-mortems, culture multiplier)
+  1: "Clear Fail (Vague generalities, takes sole credit or blames others, defensive, lacks concrete metrics)"
+  2: "Weak / Neutral (Generic stories lacking senior scope; describes what team did rather than individual leadership; weak reflections)"
+  3: "Hire (Structured STAR format, clear ownership of technical and interpersonal complexity, quantifiable impact, humble self-reflection)"
+  4: "Strong Hire (Exemplary senior leadership: navigates deep ambiguity, influences across teams without authority, drives systemic post-mortems, culture multiplier)"
 
 dimensions:
   - id: scope_and_complexity
     name: Problem Scope & Organizational Complexity
     weight: 0.20
     anchors:
-      1: Trivial scope (e.g. standard bug fix or single-screen UI task) unsuitable for a senior/staff engineer.
-      2: Moderate scope but isolated to candidate's own sprint tasks; little cross-service or multi-team breadth.
-      3: Senior/staff scope: led multi-quarter distributed initiatives, resolved architectural deadlock across teams, handled high-stakes production outages.
-      4: Principal-level scope: drove organization-wide technical strategy, unified disjoint architectures, impacted millions of active users and critical company revenue.
+      1: "Trivial scope (e.g. standard bug fix or single-screen UI task) unsuitable for a senior/staff engineer."
+      2: "Moderate scope but isolated to candidate's own sprint tasks; little cross-service or multi-team breadth."
+      3: "Senior/staff scope: led multi-quarter distributed initiatives, resolved architectural deadlock across teams, handled high-stakes production outages."
+      4: "Principal-level scope: drove organization-wide technical strategy, unified disjoint architectures, impacted millions of active users and critical company revenue."
 
   - id: ambiguity_navigation
     name: Navigating Ambiguity & Unclear Mandates
     weight: 0.20
     anchors:
-      1: Paralyzed when requirements are incomplete; waits passively for product manager or manager to provide specs.
-      2: Struggles with conflicting stakeholder inputs; attempts to please everyone without strategic prioritization.
-      3: Formulates hypotheses under incomplete data, establishes spike experiments, aligns stakeholders around an MVP, and iterates deliberately.
-      4: Thrives in extreme ambiguity: transforms vague business objectives into structured technical roadmaps, sets boundary conditions, and creates clarity for junior engineers.
+      1: "Paralyzed when requirements are incomplete; waits passively for product manager or manager to provide specs."
+      2: "Struggles with conflicting stakeholder inputs; attempts to please everyone without strategic prioritization."
+      3: "Formulates hypotheses under incomplete data, establishes spike experiments, aligns stakeholders around an MVP, and iterates deliberately."
+      4: "Thrives in extreme ambiguity: transforms vague business objectives into structured technical roadmaps, sets boundary conditions, and creates clarity for junior engineers."
 
   - id: conflict_and_influence
     name: Conflict Resolution & Influence Without Authority
     weight: 0.20
     anchors:
-      1: Combative or dismissive of opposing viewpoints; resorts to hierarchy or escalates to management prematurely.
-      2: Avoids confrontation; yields to loud voices or leaves architectural disputes unresolved.
-      3: Listens with empathy, separates technical merit from personal ego, uses objective benchmarks and data to bridge consensus.
-      4: Masterful stakeholder diplomacy: turns staunch opponents into champions, aligns dissenting principal engineers, and establishes lasting engineering standards.
+      1: "Combative or dismissive of opposing viewpoints; resorts to hierarchy or escalates to management prematurely."
+      2: "Avoids confrontation; yields to loud voices or leaves architectural disputes unresolved."
+      3: "Listens with empathy, separates technical merit from personal ego, uses objective benchmarks and data to bridge consensus."
+      4: "Masterful stakeholder diplomacy: turns staunch opponents into champions, aligns dissenting principal engineers, and establishes lasting engineering standards."
 
   - id: measurable_impact
     name: Measurable Business & Engineering Impact (STAR)
     weight: 0.20
     anchors:
-      1: "The project was successful and users liked it" — zero metrics, zero verifiable benchmarks.
-      2: Mentions numbers vaguely without baseline context ("latency was much better").
-      3: Rigorous STAR metrics: "reduced p99 latency by 40% from 850ms to 510ms across 12M daily requests, cutting cloud spend by $18k/month."
-      4: Multi-dimensional quantifiable business and technical ROI with long-term durability and verification against candidate profile.
+      1: "\"The project was successful and users liked it\" — zero metrics, zero verifiable benchmarks."
+      2: "Mentions numbers vaguely without baseline context (\"latency was much better\")."
+      3: "Rigorous STAR metrics: \"reduced p99 latency by 40% from 850ms to 510ms across 12M daily requests, cutting cloud spend by $18k/month.\""
+      4: "Multi-dimensional quantifiable business and technical ROI with long-term durability and verification against candidate profile."
 
   - id: reflection_and_googleyness
     name: Reflection, Humility & Continuous Learning
     weight: 0.20
     anchors:
-      1: Claims nothing went wrong and would do everything identically again; incapable of identifying personal mistakes.
-      2: Surface-level regret ("I worked too hard"); defensive when probed on flaws.
-      3: Transparently analyzes missteps, details specific adjustments made as a result, and shows genuine engineering humility.
-      4: Vulnerable, high-EQ leadership: shares lessons learned that reshaped team culture, mentors others to avoid identical traps, exemplifies psychological safety.
+      1: "Claims nothing went wrong and would do everything identically again; incapable of identifying personal mistakes."
+      2: "Surface-level regret (\"I worked too hard\"); defensive when probed on flaws."
+      3: "Transparently analyzes missteps, details specific adjustments made as a result, and shows genuine engineering humility."
+      4: "Vulnerable, high-EQ leadership: shares lessons learned that reshaped team culture, mentors others to avoid identical traps, exemplifies psychological safety."

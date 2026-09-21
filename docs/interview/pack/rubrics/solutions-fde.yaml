@@ -1,43 +1,43 @@
 round_type: solutions_fde
 scale:
-  1: Clear Fail (Purely inward-looking developer mindset, ignores enterprise customer constraints, no commercial empathy)
-  2: Weak (Understands customer pain but proposes generic off-the-shelf answers without considering integration risks or costs)
-  3: Hire (Strong consultative presence, uncovers latent requirements, frames technical tradeoffs in business terms, designs for rollout reality)
-  4: Strong Hire (Trusted advisor: bridges complex technical realities with C-level business outcomes, de-risks implementation, accelerates delivery)
+  1: "Clear Fail (Purely inward-looking developer mindset, ignores enterprise customer constraints, no commercial empathy)"
+  2: "Weak (Understands customer pain but proposes generic off-the-shelf answers without considering integration risks or costs)"
+  3: "Hire (Strong consultative presence, uncovers latent requirements, frames technical tradeoffs in business terms, designs for rollout reality)"
+  4: "Strong Hire (Trusted advisor: bridges complex technical realities with C-level business outcomes, de-risks implementation, accelerates delivery)"
 
 dimensions:
   - id: customer_discovery
     name: Customer Discovery & Requirement Unpacking
     weight: 0.25
     anchors:
-      1: Accepts the client's stated solution at face value without diagnosing the underlying business problem.
-      2: Asks standard tech checklist questions; misses organizational dynamics, legacy constraints, or compliance hurdles.
-      3: Methodically unpacks the business driver: asks who the end users are, what current workflows look like, regulatory/security bounds, and success criteria.
-      4: Uncovers unstated core risks (e.g. data residency, legacy SAP synchronization lag, change management friction) and reframes the initiative.
+      1: "Accepts the client's stated solution at face value without diagnosing the underlying business problem."
+      2: "Asks standard tech checklist questions; misses organizational dynamics, legacy constraints, or compliance hurdles."
+      3: "Methodically unpacks the business driver: asks who the end users are, what current workflows look like, regulatory/security bounds, and success criteria."
+      4: "Uncovers unstated core risks (e.g. data residency, legacy SAP synchronization lag, change management friction) and reframes the initiative."
 
   - id: technical_translation
     name: Technical Translation & Executive Framing
     weight: 0.25
     anchors:
-      1: Drowns non-technical stakeholders in jargon (Kafka offsets, Raft quorums, epoll) without connecting to business value.
-      2: Simplifies too much, glossing over real technical bottlenecks or making unrealistic commitments.
-      3: Seamlessly translates distributed systems trade-offs into business impacts: latency vs cost, uptime SLA vs engineering complexity.
-      4: Masterful dual-frequency communication: commands respect with deep-dive engineers while inspiring confidence with VP/C-level executives.
+      1: "Drowns non-technical stakeholders in jargon (Kafka offsets, Raft quorums, epoll) without connecting to business value."
+      2: "Simplifies too much, glossing over real technical bottlenecks or making unrealistic commitments."
+      3: "Seamlessly translates distributed systems trade-offs into business impacts: latency vs cost, uptime SLA vs engineering complexity."
+      4: "Masterful dual-frequency communication: commands respect with deep-dive engineers while inspiring confidence with VP/C-level executives."
 
   - id: tradeoff_framing
     name: Solution Options & Tradeoff Framing
     weight: 0.25
     anchors:
-      1: Presents a single dogmatic solution; refuses to consider client's existing technology stack or vendor lock-in concerns.
-      2: Presents options without conviction or concrete decision matrices.
-      3: Presents 2–3 structured alternatives (e.g. Build vs Buy, Cloud-Native vs Hybrid, Incremental Strangler vs Big Bang) with explicit pros/cons and cost trajectories.
-      4: Crafts a phased evolution roadmap: delivers immediate ROI in Phase 1 while laying durable foundation for full migration.
+      1: "Presents a single dogmatic solution; refuses to consider client's existing technology stack or vendor lock-in concerns."
+      2: "Presents options without conviction or concrete decision matrices."
+      3: "Presents 2–3 structured alternatives (e.g. Build vs Buy, Cloud-Native vs Hybrid, Incremental Strangler vs Big Bang) with explicit pros/cons and cost trajectories."
+      4: "Crafts a phased evolution roadmap: delivers immediate ROI in Phase 1 while laying durable foundation for full migration."
 
   - id: delivery_risk_mitigation
     name: Delivery Risk, Rollout & Day-2 Operations
     weight: 0.25
     anchors:
-      1: Assumes deployment is instantaneous; ignores data migration, zero-downtime cutover, and operational training.
-      2: Mentions shadow deployment casually without error budget or rollback triggers.
-      3: Details robust cutover strategy: dual-write phase, automated reconciliation scripts, canary routing with rollback thresholds, operational runbooks.
-      4: Complete enterprise de-risking: addresses disaster recovery, compliance audits, partner API rate-limits, support tier escalation paths.
+      1: "Assumes deployment is instantaneous; ignores data migration, zero-downtime cutover, and operational training."
+      2: "Mentions shadow deployment casually without error budget or rollback triggers."
+      3: "Details robust cutover strategy: dual-write phase, automated reconciliation scripts, canary routing with rollback thresholds, operational runbooks."
+      4: "Complete enterprise de-risking: addresses disaster recovery, compliance audits, partner API rate-limits, support tier escalation paths."

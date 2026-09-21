@@ -1,52 +1,52 @@
 round_type: communication_toptal
 scale:
-  1: Clear Fail (Disorganized, incoherent rambler, poor English fluency, defensive when questioned)
-  2: Weak (Understands prompts but takes 4+ minutes to make a simple point; loses train of thought)
-  3: Hire (Crisp executive communication, structured top-down explanations, excellent fluency, handles follow-ups with poise)
-  4: Strong Hire (World-class clarity: synthesizes complex distributed topics into 2-3 crisp sentences, high charisma, natural presence, immediately instills trust)
+  1: "Clear Fail (Disorganized, incoherent rambler, poor English fluency, defensive when questioned)"
+  2: "Weak (Understands prompts but takes 4+ minutes to make a simple point; loses train of thought)"
+  3: "Hire (Crisp executive communication, structured top-down explanations, excellent fluency, handles follow-ups with poise)"
+  4: "Strong Hire (World-class clarity: synthesizes complex distributed topics into 2-3 crisp sentences, high charisma, natural presence, immediately instills trust)"
 
 dimensions:
   - id: clarity_and_structure
     name: Structural Problem Formulation (Pyramid Principle)
     weight: 0.25
     anchors:
-      1: Answers in a meandering stream of consciousness; listener has to piece together the narrative.
-      2: Gives good information eventually, but buries the lead and requires multiple clarifying follow-ups.
-      3: Answers with immediate top-down structure: "There are 3 reasons for this: first..., second..., third..."
-      4: Masterful executive framing: gives the punchline first, categorizes complex trade-offs effortlessly, checks in with listener.
+      1: "Answers in a meandering stream of consciousness; listener has to piece together the narrative."
+      2: "Gives good information eventually, but buries the lead and requires multiple clarifying follow-ups."
+      3: "Answers with immediate top-down structure: \\\"There are 3 reasons for this: first..., second..., third...\\\""
+      4: "Masterful executive framing: gives the punchline first, categorizes complex trade-offs effortlessly, checks in with listener."
 
   - id: conciseness_and_brevity
     name: Conciseness & Information Density
     weight: 0.25
     anchors:
-      1: Speaks for 5+ minutes continuously without pausing or checking for listener engagement; repeats same points.
-      2: Tends to over-explain simple background context before arriving at the crux.
-      3: Delivers complete, dense answers in 60–90 seconds; respects interview time budget and invites dialogue.
-      4: Remarkable economy of language: conveys deep technical concepts with surgical precision in 2–3 sentences.
+      1: "Speaks for 5+ minutes continuously without pausing or checking for listener engagement; repeats same points."
+      2: "Tends to over-explain simple background context before arriving at the crux."
+      3: "Delivers complete, dense answers in 60–90 seconds; respects interview time budget and invites dialogue."
+      4: "Remarkable economy of language: conveys deep technical concepts with surgical precision in 2–3 sentences."
 
   - id: english_fluency_and_tone
     name: Professional Fluency & Collaborative Demeanor
     weight: 0.20
     anchors:
-      1: Struggles for vocabulary, awkward cadence, overly informal slang or abrasive tone.
-      2: Functional English but occasionally searches for technical terms; slightly monotone or anxious.
-      3: Fluent, articulate professional English; natural inflection, confident and welcoming executive presence.
-      4: Flawless, engaging conversational presence; effortless technical vocabulary, calm gravitas under stress.
+      1: "Struggles for vocabulary, awkward cadence, overly informal slang or abrasive tone."
+      2: "Functional English but occasionally searches for technical terms; slightly monotone or anxious."
+      3: "Fluent, articulate professional English; natural inflection, confident and welcoming executive presence."
+      4: "Flawless, engaging conversational presence; effortless technical vocabulary, calm gravitas under stress."
 
   - id: handling_follow_ups
     name: Adaptability & Handling Pushback
     weight: 0.15
     anchors:
-      1: Rigid; argues with interviewer's premise or ignores the follow-up question.
-      2: Hesitates or scrambles when challenged; switches answers without justifying why.
-      3: Welcomes pushback thoughtfully: "That's a great constraint to introduce. If we do X, then the tradeoff becomes Y."
-      4: Nimble intellectual agility: pivots gracefully, expands on subtle implications, turns challenges into collaborative problem solving.
+      1: "Rigid; argues with interviewer's premise or ignores the follow-up question."
+      2: "Hesitates or scrambles when challenged; switches answers without justifying why."
+      3: "Welcomes pushback thoughtfully: \\\"That's a great constraint to introduce. If we do X, then the tradeoff becomes Y.\\\""
+      4: "Nimble intellectual agility: pivots gracefully, expands on subtle implications, turns challenges into collaborative problem solving."
 
   - id: honesty_about_gaps
     name: Intellectual Honesty & Confidence Boundaries
     weight: 0.15
     anchors:
-      1: Fakes knowledge; pretends to know unfamiliar systems or buzzwords; invents non-existent APIs.
-      2: Hesitant and apologetic when lacking deep knowledge; shows insecurity.
-      3: Transparent and confident: "I haven't used Cassandra in production, but based on its LSM-tree storage model, I expect..."
-      4: Exemplary integrity: establishes clear boundaries of personal experience, reasons from first principles, and proposes verified discovery steps.
+      1: "Fakes knowledge; pretends to know unfamiliar systems or buzzwords; invents non-existent APIs."
+      2: "Hesitant and apologetic when lacking deep knowledge; shows insecurity."
+      3: "Transparent and confident: \\\"I haven't used Cassandra in production, but based on its LSM-tree storage model, I expect...\\\""
+      4: "Exemplary integrity: establishes clear boundaries of personal experience, reasons from first principles, and proposes verified discovery steps."

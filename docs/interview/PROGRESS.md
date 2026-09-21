@@ -6,7 +6,7 @@ This document tracks phase-by-phase execution, architectural decisions, dependen
 
 ## Phase 0: Reconnaissance & Decisions (2026-09-21)
 
-### Status: Complete & Awaiting Approval for Phase 1
+### Status: Complete
 
 ### 1. Done
 - **Full Codebase Audit:**
@@ -26,26 +26,47 @@ This document tracks phase-by-phase execution, architectural decisions, dependen
   - `docs/interview/adr/ADR-003-model-registry.md`: Centralized model registry and verification of Gemini Live API capabilities (duplex transcription, sliding window compression, session resumption).
   - `docs/interview/adr/ADR-004-cost-control.md`: Token metering, FX configuration, warning thresholds (50%/80%), and hard monthly budget cap (INR 15,000).
 
-### 2. Not Done (Scheduled for Subsequent Phases)
-- Phase 1: Isolated `/evaluate` page and "Evaluate Any Job Opening URL" sidebar item.
-- Phase 2: Content Interview Pack (rubrics, hint ladders, question banks, system prompts, calibration samples).
-- Phase 3: SQLite schema expansion & WebSocket proxy server implementation (`pnpm interview:server`).
-- Phase 4: Interview Room UI (Robot avatar, AudioWorklet, Monaco, Excalidraw).
-- Phase 5: Observer service & spoken interjections policy engine.
-- Phase 6: Grader service, calibration validation, and progress tracking.
-- Phase 7: Hardening, security, and documentation.
+---
 
-### 3. Dependencies Planned (With Justifications)
-*To be added only when entering relevant phases:*
-- `ws` & `@types/ws`: Standard Node.js WebSocket library for the local server proxy process (Phase 3).
-- `@google/genai`: Official Google GenAI SDK supporting Gemini Multimodal Live API bidirectional audio sessions (Phase 3).
-- `@monaco-editor/react`: Sandboxed in-browser C++ code editor with configurable autocomplete/snippet restrictions (Phase 4).
-- `@excalidraw/excalidraw`: Freehand diagramming canvas for system design architecture sketching (Phase 4).
+## Phase 1: "Evaluate Any Job Opening URL" Sidebar Menu & Route (2026-09-21)
 
-### 4. Quality Gate Verification (Phase 0)
-- **TypeScript & Build:** Typecheck validated (`npx tsc --noEmit` / Next.js app structure intact).
-- **ESLint:** Passed with 0 errors and 0 warnings (`pnpm lint`).
-- **Unit Tests:** 22 test files / 98 tests passed in 25.13s (`pnpm test`).
+### Status: Complete & Verified
 
-### 5. Decisions Needed / Blocking Questions
-- None blocking Phase 1. All architectural decisions (ADR-001 to ADR-004) are finalized and documented.
+### 1. Done
+- **Data-Driven Navigation Architecture:**
+  - Created `components/navigation/sidebar-config.ts` defining data-driven navigation items supporting route transitions (`href`) and dashboard view switching (`tab`).
+  - Created `components/navigation/Sidebar.tsx` as a reusable component rendering the frosted glass sidebar, badge counters, cron schedule status, and manual scan triggers across all routes.
+  - Added dedicated sidebar item labelled exactly: **"Evaluate Any Job Opening URL"** (short label: "Evaluate URL", icon: `Compass`, route: `/evaluate`).
+  - Added active-route highlighting when visiting `/evaluate` with full tooltip/collapsed support.
+- **Dedicated Route (`/evaluate`):**
+  - Created `app/evaluate/page.tsx` containing the full evaluation flow:
+    - URL input with format validation (ensures valid HTTP/HTTPS protocol).
+    - Loading states with animated calculation indicators.
+    - Result panel with 0–100% Fit Score gauge, matched strengths, sponsorship classification, tech stack badges, and key considerations.
+    - Clear empty states explaining specialized ATS vs Cheerio extraction mechanisms.
+    - Clear error banners for network or scraping anomalies.
+    - Action bar: "Open Job Opening Directly" (external link), "Save to Active Openings" (persisting to SQLite), and "Tailor Application Kit ↗" (modal KitStudio).
+- **Cleaned Dashboard & Removed Duplication:**
+  - Removed old inline form and states from `app/page.tsx`.
+  - Replaced inline evaluator with a quick-link callout to `/evaluate` (no dead links, zero duplicate code).
+  - Wired `/?tab=<tab>` query parameter support on mount.
+- **Unit Testing:**
+  - Created `tests/phase1/evaluate-url.test.ts` (5 tests) verifying sidebar config integrity, route presence, URL protocol validation, and API 400 error responses.
+
+### 2. Manual Verification Results
+- **Real URL 1 (ATS - Greenhouse):**
+  - Tested `https://boards.greenhouse.io/stripe/jobs/5202970`
+  - Extracted Company: Stripe, Location: Remote in United States, Tech Stack: AWS Cloud, Fit Score: 68%. Success: `true`.
+- **Real URL 2 (Company Board - Ashby/Linear):**
+  - Tested `https://jobs.ashbyhq.com/linear`
+  - Extracted Company: Linear, Tech Stack: Backend, Distributed Systems, Cloud, Fit Score: 65%. Success: `true`.
+- **Quality Gates:**
+  - `pnpm lint`: 0 errors, 0 warnings.
+  - `pnpm test`: 23 test suites / 103 tests passed.
+  - `pnpm build`: Both `/` (17.6 kB) and `/evaluate` (4.45 kB) compiled and statically generated with 0 errors.
+
+### 3. Dependencies Added
+- None. (Used existing `lucide-react`, `next/link`, `clsx`, `tailwind-merge`).
+
+### 4. Decisions Needed / Blocking Questions
+- None. Phase 1 is complete and ready for Phase 2.

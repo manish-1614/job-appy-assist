@@ -41,6 +41,8 @@ import {
   BarChart2,
   Flame
 } from 'lucide-react';
+import Link from 'next/link';
+import Sidebar from '@/components/navigation/Sidebar';
 import { EvaluatedJob, AtsType, RawJobPosting } from '@/lib/ats-adapters';
 import { CompanyConfig, CandidateProfile } from '@/lib/storage';
 import { AiEvaluationResult } from '@/lib/ai-evaluator';
@@ -199,18 +201,6 @@ export default function Dashboard() {
   const [historyList, setHistoryList] = useState<ScanHistoryItem[]>([]);
   const [selectedHistoryScan, setSelectedHistoryScan] = useState<ScanHistoryItem | null>(null);
 
-  // Manual URL Evaluator State
-  const [manualUrl, setManualUrl] = useState('');
-  const [isEvaluatingUrl, setIsEvaluatingUrl] = useState(false);
-  const [manualEvalResult, setManualEvalResult] = useState<{
-    rawPosting?: RawJobPosting;
-    evaluation?: AiEvaluationResult;
-    evaluatedJob?: EvaluatedJob;
-    saved?: boolean;
-  } | null>(null);
-  const [evalError, setEvalError] = useState<string | null>(null);
-  const [evalSaveSuccess, setEvalSaveSuccess] = useState(false);
-  const [isSavingEvaluatedJob, setIsSavingEvaluatedJob] = useState(false);
 
   // Distinct company accordion expansion state
   const [expandedCompanies, setExpandedCompanies] = useState<Record<string, boolean>>({});
@@ -318,6 +308,19 @@ export default function Dashboard() {
     fetchApplications();
     fetchTodayData();
     fetchInsightsData();
+
+    // Check tab and scan query params
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab') as any;
+      if (tabParam && ['today', 'fresh', 'all', 'pipeline', 'insights', 'review', 'watchlist', 'profile', 'runs'].includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+      if (params.get('scan') === 'trigger') {
+        triggerLiveScan();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -596,274 +599,25 @@ export default function Dashboard() {
     }
   };
 
-  const handleManualUrlEvaluation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!manualUrl.trim()) return;
-    setIsEvaluatingUrl(true);
-    setEvalError(null);
-    setEvalSaveSuccess(false);
-
-    try {
-      const res = await fetch('/api/eval/url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: manualUrl.trim() })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setManualEvalResult(data);
-      } else {
-        setEvalError(data.error || 'Failed to evaluate URL. Please ensure it points to a valid job posting.');
-      }
-    } catch (err: any) {
-      setEvalError(err.message || 'Network error evaluating URL');
-    } finally {
-      setIsEvaluatingUrl(false);
-    }
-  };
-
-  const handleSaveEvaluatedJob = async () => {
-    if (!manualUrl.trim() || !manualEvalResult?.evaluatedJob) return;
-    setIsSavingEvaluatedJob(true);
-    try {
-      const res = await fetch('/api/eval/url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: manualUrl.trim(), saveToJobs: true })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setEvalSaveSuccess(true);
-        fetchCanonicalJobs();
-      } else {
-        alert(data.error || 'Failed to save job to active openings');
-      }
-    } catch (err) {
-      console.error('Failed to save evaluated job:', err);
-    } finally {
-      setIsSavingEvaluatedJob(false);
-    }
-  };
-
   return (
     <div className="flex h-screen w-full bg-[#060B08] text-emerald-50 overflow-hidden font-sans">
       
-      {/* FROSTED GLASS SIDEBAR */}
-      <aside className="w-[280px] h-full glass-panel border-r border-emerald-500/10 p-6 flex flex-col justify-between z-20 shrink-0">
-        <div>
-          {/* Brand Header */}
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-glow-emerald">
-              <Briefcase className="w-5 h-5 text-slate-950 font-bold" />
-            </div>
-            <div>
-              <h1 className="font-bold text-lg tracking-tight text-white leading-none">JobAppy</h1>
-              <span className="text-xs text-emerald-400 font-mono tracking-wider font-semibold">INTELLIGENCE v2.0</span>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="space-y-2">
-            <button
-              onClick={() => setActiveTab('today')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
-                activeTab === 'today' 
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-glow-amber font-bold' 
-                  : 'text-slate-400 hover:text-white hover:bg-emerald-500/5'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Flame className="w-4 h-4 text-amber-400" />
-                <span>Today Cockpit</span>
-              </div>
-              {todayData?.followUpsDue?.length > 0 ? (
-                <span className="bg-amber-500 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-mono font-extrabold animate-pulse">
-                  {todayData.followUpsDue.length} Due
-                </span>
-              ) : (
-                <span className="text-slate-500 text-xs font-mono">10/wk</span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('fresh')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
-                activeTab === 'fresh' 
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-glow-emerald font-bold' 
-                  : 'text-slate-400 hover:text-white hover:bg-emerald-500/5'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Sparkles className="w-4 h-4 text-emerald-400" />
-                <span>Fresh (Last 24h)</span>
-              </div>
-              <span className="bg-emerald-500/30 text-emerald-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
-                {freshJobs.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
-                activeTab === 'all' 
-                  ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-glow-mint font-bold' 
-                  : 'text-slate-400 hover:text-white hover:bg-emerald-500/5'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Building2 className="w-4 h-4 text-teal-400" />
-                <span>Top 50 Companies</span>
-              </div>
-              <span className="bg-teal-500/30 text-teal-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
-                {topDistinctCompanies.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('pipeline')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
-                activeTab === 'pipeline' 
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-glow-emerald font-bold' 
-                  : 'text-slate-400 hover:text-white hover:bg-emerald-500/5'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Layers className="w-4 h-4 text-emerald-400" />
-                <span>Pipeline (Kanban)</span>
-              </div>
-              <span className="bg-emerald-500/30 text-emerald-200 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
-                {applicationsList.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('insights')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
-                activeTab === 'insights' 
-                  ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-glow-mint font-bold' 
-                  : 'text-slate-400 hover:text-white hover:bg-emerald-500/5'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <BarChart2 className="w-4 h-4 text-teal-400" />
-                <span>Funnel Analytics</span>
-              </div>
-              <span className="text-teal-300 text-xs font-mono font-bold">
-                {insightsData ? `${insightsData.responseRate}%` : '0%'}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('review')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
-                activeTab === 'review' 
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-glow-amber' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <ShieldCheck className="w-4 h-4" />
-                <span>Review Queue</span>
-              </div>
-              {reviewJobs.length > 0 && (
-                <span className="bg-amber-500/30 text-amber-300 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">
-                  {reviewJobs.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('watchlist')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
-                activeTab === 'watchlist' 
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Building2 className="w-4 h-4" />
-                <span>Employer Watchlist</span>
-              </div>
-              <span className="text-slate-500 text-xs font-mono">{companies.length}</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
-                activeTab === 'profile' 
-                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <UserCheck className="w-4 h-4" />
-                <span>Candidate Profile</span>
-              </div>
-              <span className="text-sky-400 text-xs font-mono">8.5y</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('runs')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-medium text-sm transition-all duration-200 ${
-                activeTab === 'runs' 
-                  ? 'bg-slate-700/50 text-white border border-slate-600' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Activity className="w-4 h-4" />
-                <span>Scan History</span>
-              </div>
-              <span className="text-slate-500 text-xs font-mono">{historyList.length}</span>
-            </button>
-          </nav>
-        </div>
-
-        {/* Live Manual Trigger Control */}
-        <div className="pt-6 border-t border-white/10">
-          <div className="bg-white/5 p-4 rounded-2xl mb-4 border border-white/5">
-            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                Cron Schedule
-              </span>
-              <span className="text-white font-mono font-medium">9 AM & 9 PM IST</span>
-            </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Background runner actively monitors direct ATS & RSS feeds.
-            </p>
-          </div>
-
-          <button 
-            onClick={triggerLiveScan}
-            disabled={isScanning || cooldownRemaining > 0}
-            className={`w-full py-3.5 px-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-300 shadow-lg ${
-              cooldownRemaining > 0 
-                ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700' 
-                : isScanning
-                  ? 'bg-emerald-600/50 text-white cursor-wait'
-                  : 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold shadow-glow-emerald active:scale-95'
-            }`}
-          >
-            {isScanning ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Ingesting Feeds...</span>
-              </>
-            ) : cooldownRemaining > 0 ? (
-              <>
-                <Clock className="w-4 h-4 text-slate-500" />
-                <span>Cooldown ({formatCooldownTime(cooldownRemaining)})</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-white" />
-                <span>Trigger Live Scan</span>
-              </>
-            )}
-          </button>
-        </div>
-      </aside>
+      {/* REUSABLE FROSTED GLASS SIDEBAR */}
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={(tab) => setActiveTab(tab)}
+        todayDueCount={todayData?.followUpsDue?.length || 0}
+        freshJobsCount={freshJobs.length}
+        topCompaniesCount={topDistinctCompanies.length}
+        pipelineCount={applicationsList.length}
+        responseRate={insightsData ? insightsData.responseRate : 0}
+        reviewCount={reviewJobs.length}
+        companiesCount={companies.length}
+        historyCount={historyList.length}
+        isScanning={isScanning}
+        cooldownRemaining={cooldownRemaining}
+        onTriggerLiveScan={triggerLiveScan}
+      />
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 flex flex-col gap-6 p-8 overflow-y-auto max-w-6xl">
@@ -925,238 +679,29 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* MANUAL JOB URL EVALUATOR BAR */}
-        <section className="glass-panel p-5 rounded-3xl border border-white/10 bg-slate-900/40 shadow-2xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-glow-emerald shrink-0">
-                <Compass className="w-5 h-5 text-slate-950 font-bold" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-white tracking-tight">Evaluate Any Job Opening URL</h3>
-                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
-                    Instant Fit Match
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Paste any job posting link (Greenhouse, Lever, Ashby, or general careers link) to navigate and calculate your match percentage.
-                </p>
-              </div>
+        {/* Quick Link to Dedicated URL Evaluator (Phase 1) */}
+        <div className="glass-panel p-4 rounded-2xl border border-emerald-500/20 bg-emerald-950/20 flex items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-glow-emerald">
+              <Compass className="w-4 h-4" />
             </div>
-
-            {manualEvalResult && (
-              <button
-                onClick={() => {
-                  setManualEvalResult(null);
-                  setEvalError(null);
-                  setEvalSaveSuccess(false);
-                }}
-                className="text-xs text-slate-400 hover:text-white flex items-center gap-1 self-start sm:self-center px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-                <span>Clear Analysis</span>
-              </button>
-            )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-white text-sm">Evaluate Any Job Opening URL</span>
+                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Dedicated Page</span>
+              </div>
+              <p className="text-slate-400 mt-0.5 truncate">
+                Analyze any external job posting link (Greenhouse, Lever, Ashby, or general careers link) for immediate candidate fit.
+              </p>
+            </div>
           </div>
-
-          <form onSubmit={handleManualUrlEvaluation} className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <LinkIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="url"
-                placeholder="Paste job posting URL (e.g., https://boards.greenhouse.io/... or https://jobs.lever.co/...)"
-                value={manualUrl}
-                onChange={(e) => {
-                  setManualUrl(e.target.value);
-                  if (evalError) setEvalError(null);
-                }}
-                className="w-full bg-slate-950/80 border border-emerald-500/15 rounded-2xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40 transition-all font-mono"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isEvaluatingUrl || !manualUrl.trim()}
-              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-50 text-white font-semibold text-sm flex items-center gap-2 shadow-glow-emerald active:scale-95 transition-all shrink-0"
-            >
-              {isEvaluatingUrl ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Calculating Match %...</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4 fill-white" />
-                  <span>Analyze Match</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Validation / Fetch Error */}
-          {evalError && (
-            <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/30 text-red-200 text-xs flex items-center gap-3">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-              <span>{evalError}</span>
-            </div>
-          )}
-
-          {/* EVALUATED MATCH RESULT CARD */}
-          {manualEvalResult?.evaluatedJob && (
-            <div className="p-6 rounded-2xl bg-slate-950/70 border border-cyan-500/40 space-y-4 shadow-glow-cyan animate-in fade-in duration-300">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-white/10">
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <span className="text-xs font-mono text-cyan-300 bg-cyan-500/20 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
-                      {manualEvalResult.evaluatedJob.source}
-                    </span>
-                    <span className="text-xs font-medium text-white">{manualEvalResult.evaluatedJob.company}</span>
-                    <span className="text-xs text-slate-500">•</span>
-                    <span className="text-xs text-slate-400">{manualEvalResult.evaluatedJob.location}</span>
-                  </div>
-                  <h4 className="text-xl font-bold text-white tracking-tight">
-                    {manualEvalResult.evaluatedJob.title}
-                  </h4>
-                  <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                    {manualEvalResult.evaluatedJob.matchReason}
-                  </p>
-                </div>
-
-                {/* Prominent Match Gauge */}
-                <div className="flex flex-col items-end shrink-0 bg-slate-900/80 p-3.5 rounded-2xl border border-white/10 min-w-[140px] text-right">
-                  <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Fit Score</span>
-                  <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className={`text-3xl font-extrabold font-mono ${
-                      manualEvalResult.evaluatedJob.score >= 70 
-                        ? 'text-emerald-400' 
-                        : manualEvalResult.evaluatedJob.score >= 50 
-                          ? 'text-amber-400' 
-                          : 'text-slate-400'
-                    }`}>
-                      {manualEvalResult.evaluatedJob.score}%
-                    </span>
-                    <span className="text-xs text-slate-500 font-mono">MATCH</span>
-                  </div>
-                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full mt-1.5 border capitalize ${
-                    manualEvalResult.evaluatedJob.score >= 70
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                      : manualEvalResult.evaluatedJob.score >= 50
-                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                        : 'bg-slate-800 text-slate-400 border-slate-700'
-                  }`}>
-                    {manualEvalResult.evaluatedJob.score >= 70 ? 'High Alignment' : manualEvalResult.evaluatedJob.score >= 50 ? 'Moderate Fit' : 'Low Overlap'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Strengths & Considerations Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 space-y-2">
-                  <span className="font-mono text-cyan-300 uppercase tracking-wider block font-semibold">Matched Strengths</span>
-                  <ul className="space-y-1.5 text-slate-300">
-                    {(manualEvalResult.evaluation?.strengths || manualEvalResult.evaluatedJob.evidence).slice(0, 3).map((st, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <Check className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
-                        <span>{st}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 space-y-2">
-                  <span className="font-mono text-amber-300 uppercase tracking-wider block font-semibold">Key Considerations / Notes</span>
-                  <ul className="space-y-1.5 text-slate-300">
-                    <li className="flex items-start gap-2">
-                      <span className="text-cyan-400 mt-0.5 shrink-0">•</span>
-                      <span><strong>Sponsorship:</strong> <span className="capitalize">{manualEvalResult.evaluatedJob.sponsorship}</span></span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-cyan-400 mt-0.5 shrink-0">•</span>
-                      <span><strong>Location Type:</strong> {manualEvalResult.evaluatedJob.isRemote ? 'Remote Friendly' : 'Location-Specific'}</span>
-                    </li>
-                    {manualEvalResult.evaluation?.concerns && manualEvalResult.evaluation.concerns.length > 0 && (
-                      <li className="flex items-start gap-2">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
-                        <span>{manualEvalResult.evaluation.concerns[0]}</span>
-                      </li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Detected Tech Stack */}
-              {manualEvalResult.evaluatedJob.techStack.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap pt-1">
-                  <span className="text-xs font-mono text-slate-400">Tech Stack:</span>
-                  {manualEvalResult.evaluatedJob.techStack.map((tech) => (
-                    <span key={tech} className="text-xs px-2.5 py-1 rounded-xl bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-mono">
-                      {tech}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Action Buttons: Navigate to URL & Save to Tracker */}
-              <div className="flex items-center justify-between pt-3 border-t border-white/10 flex-wrap gap-3">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <a
-                    href={manualEvalResult.evaluatedJob.canonicalUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium text-xs flex items-center gap-2 shadow-glow-emerald transition-all"
-                  >
-                    <span>Open Job Opening Directly</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-
-                  <button
-                    onClick={() => setSelectedJob(manualEvalResult.evaluatedJob!)}
-                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-medium text-xs flex items-center gap-1.5 transition-all border border-white/10"
-                  >
-                    <span>Inspect Full Breakdown</span>
-                  </button>
-
-                  <button
-                    onClick={() => setShowKitModalJob(manualEvalResult.evaluatedJob!)}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs font-mono flex items-center gap-1.5 shadow-glow-emerald transition-all active:scale-95"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-slate-950" />
-                    <span>Tailor Application Kit ↗</span>
-                  </button>
-                </div>
-
-                <div>
-                  {evalSaveSuccess ? (
-                    <span className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-medium flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      Saved to Active Openings!
-                    </span>
-                  ) : (
-                    <button
-                      onClick={handleSaveEvaluatedJob}
-                      disabled={isSavingEvaluatedJob}
-                      className="px-4 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 text-xs font-medium flex items-center gap-1.5 transition-all"
-                    >
-                      {isSavingEvaluatedJob ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <BookmarkPlus className="w-3.5 h-3.5" />
-                          <span>Save to Active Openings</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
+          <Link
+            href="/evaluate"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-semibold flex items-center gap-1.5 shadow-glow-emerald transition-all shrink-0 font-mono text-xs"
+          >
+            <span>Open Evaluator ↗</span>
+          </Link>
+        </div>
 
         {/* METRICS ROW (Scorer v2) */}
         <div className="grid grid-cols-4 gap-4">

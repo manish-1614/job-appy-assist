@@ -31,7 +31,6 @@ import {
   Check,
   Link as LinkIcon,
   BookmarkPlus,
-  Compass,
   AlertCircle,
   ChevronDown,
   ChevronUp,
@@ -679,29 +678,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Quick Link to Dedicated URL Evaluator (Phase 1) */}
-        <div className="glass-panel p-4 rounded-2xl border border-emerald-500/20 bg-emerald-950/20 flex items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-glow-emerald">
-              <Compass className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-white text-sm">Evaluate Any Job Opening URL</span>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Dedicated Page</span>
-              </div>
-              <p className="text-slate-400 mt-0.5 truncate">
-                Analyze any external job posting link (Greenhouse, Lever, Ashby, or general careers link) for immediate candidate fit.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/evaluate"
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-semibold flex items-center gap-1.5 shadow-glow-emerald transition-all shrink-0 font-mono text-xs"
-          >
-            <span>Open Evaluator ↗</span>
-          </Link>
-        </div>
 
         {/* METRICS ROW (Scorer v2) */}
         <div className="grid grid-cols-4 gap-4">

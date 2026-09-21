@@ -1,0 +1,88 @@
+round_type: system_design
+scale:
+  1: Clear Fail (Lacks fundamental senior instincts, ignores scale/failures, hand-wavy)
+  2: Weak / Borderline (Touches topics superficially when prompted, lacks concrete mechanics)
+  3: Hire (Solid staff-level command, proactive tradeoffs, robust distributed architecture)
+  4: Strong Hire (Exemplary engineering instincts, anticipates production outages, cost-aware)
+
+dimensions:
+  - id: requirements_and_scope
+    name: Requirements & Scope Clarification
+    weight: 0.10
+    anchors:
+      1: Jumps directly into databases and boxes without asking about users, scale, or functional constraints.
+      2: Asks basic questions but accepts fuzzy constraints; misses critical non-functional limits.
+      3: Drives proactive scoping: distinguishes core functional vs out-of-scope, clarifies read/write ratios, SLA/SLO latency targets.
+      4: Masterfully defines bounded contexts, latency percentiles (p99/p99.9), durability expectations, and operational failure boundaries.
+
+  - id: capacity_estimates
+    name: Capacity & Scale Estimates
+    weight: 0.08
+    anchors:
+      1: Avoids numbers completely or invents random non-sensical calculations without units.
+      2: Calculates DAU to QPS with interviewer assistance; forgets peak multipliers, storage growth, or bandwidth.
+      3: Derives read QPS, write QPS, peak traffic multiplier (e.g. 5x-10x), 5-year storage capacity, and network throughput with clean math.
+      4: Translates numbers directly into architectural sizing (e.g., IOPS limits, network interface saturations, memory cache sizing).
+
+  - id: api_and_data_model
+    name: API & Data Model Design
+    weight: 0.10
+    anchors:
+      1: Omits API contracts; sketches vague tables without primary keys, partition keys, or foreign relations.
+      2: Provides basic CRUD endpoints and relational schema; ignores pagination, idempotency keys, or indexing.
+      3: Explicit REST/gRPC contracts with idempotency keys, pagination (cursor-based), robust schemas with defined partition/clustering keys.
+      4: Anticipates schema migration challenges, hot-partition risks, access-pattern aligned NoSQL/relational choices, and payload size bounds.
+
+  - id: high_level_design
+    name: High-Level Architecture & Component Flow
+    weight: 0.12
+    anchors:
+      1: Monolithic box diagram with arrows that have no clear protocol, direction, or role.
+      2: Standard 3-tier diagram (CDN -> LB -> App -> DB) without showing async pipelines or specialized components.
+      3: Clean separation of concerns: API gateways, domain services, async event buses, caching tiers, primary/read replicas.
+      4: Elegant microservice/modular topology with clear trust boundaries, asynchronous worker pools, and dedicated ingestion pipelines.
+
+  - id: traffic_spike_handling
+    name: Traffic-Spike & Overload Handling
+    weight: 0.16
+    anchors:
+      1: Claims "autoscaling handles everything"; unaware of autoscaling spin-up lag (3-5 minutes) or database overload.
+      2: Mentions Redis caching and rate limiting but lacks concrete mechanics for thundering herd or connection pool exhaustion.
+      3: Integrates token-bucket rate limiting at gateway, admission control, worker queues with backpressure, and cache stampede defenses (probabilistic early expiration / distributed locks).
+      4: Deep operational strategy: graceful degradation, priority-based load shedding, circuit breakers (Hystrix/Resilience4j pattern), pre-warmed serverless capacity, and queue-based leveling.
+
+  - id: decoupling_and_async
+    name: Decoupling, Asynchrony & Event Driven Architecture
+    weight: 0.16
+    anchors:
+      1: Synchronous RPC calls chain through 4+ services; single failure cascades to complete outage.
+      2: Adds a message queue but fails to address duplicate delivery, out-of-order execution, or partial failures.
+      3: Transactional Outbox pattern with Debezium/Kafka; consumer idempotency via unique deduplication keys; dead-letter queues (DLQ) with retry backoff and jitter.
+      4: Comprehensive saga orchestration vs choreography; distributed event ordering; exactly-once semantics via idempotent state transitions; poison-pill isolation.
+
+  - id: consistency_vs_availability
+    name: Consistency & Availability Tradeoffs (CAP / PACELC)
+    weight: 0.10
+    anchors:
+      1: Claims system achieves 100% strict consistency and 100% continuous availability globally simultaneously.
+      2: Recites CAP theorem definitions by rote without applying them to specific data paths (e.g. checkout vs inventory vs view count).
+      3: Explicitly differentiates paths: strong consistency for financial transactions/inventory balance vs eventual consistency for feeds/analytics.
+      4: Quantifies replication lag impacts, quorum reads/writes (R + W > N), multi-region active-active conflict resolution (CRDTs or last-write-wins caveats).
+
+  - id: failure_modes_and_observability
+    name: Failure Modes & Observability
+    weight: 0.10
+    anchors:
+      1: Assumes network is reliable, servers never crash, and disks never fill up.
+      2: Lists "Prometheus and logs" without explaining what alerts fire or how an operator debugs a distributed failure.
+      3: Maps single points of failure (SPOF); details health-check probes, distributed tracing (OpenTelemetry/trace IDs), key SLI metrics (p99 latency, error rate, queue lag).
+      4: Designs for chaos/disaster recovery: cross-AZ failover, read-replica promotion, poison message quarantine, synthetic traffic monitoring.
+
+  - id: cost_and_communication
+    name: Cost Awareness & Structural Communication
+    weight: 0.08
+    anchors:
+      1: Rambling, disorganized whiteboard sketch; recommends multi-million dollar over-provisioned infrastructure for modest workloads.
+      2: Communication is reactive; answers only when asked; mentions costs casually without sizing.
+      3: Drives the discussion systematically (requirements -> estimates -> HLD -> deep dive -> wrap up); justifies choices economically (hot vs cold tiering).
+      4: Exceptional leadership: checks in with interviewer at milestones, presents balanced architectural options with trade-offs, right-sizes storage/compute tiers.

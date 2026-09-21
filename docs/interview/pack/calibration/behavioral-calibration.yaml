@@ -1,0 +1,41 @@
+round_type: behavioral_google
+expected_separation_margin: 1.2
+
+samples:
+  # WEAK SAMPLES (Target Score: 1.0 - 1.9)
+  - id: beh_weak_1
+    question_id: beh_google_ambiguity
+    level: weak
+    expected_score_range: [1.0, 1.8]
+    transcript_summary: "When asked about navigating ambiguity, candidate gave a generic story: 'We were told to build a new feature but product hadn't written the specs. So I waited for the PM to finish the PRD in Jira before starting work. We launched on time and everyone was happy.' Zero initiative, zero technical de-risking, completely passive, no metrics."
+
+  - id: beh_weak_2
+    question_id: beh_google_conflict
+    level: weak
+    expected_score_range: [1.1, 1.8]
+    transcript_summary: "Candidate described an argument over adopting GraphQL: 'The tech lead wanted GraphQL but I knew REST was simpler. I told him GraphQL was stupid and over-engineered. We argued in meetings for three weeks. Finally I escalated to our Engineering Director who told the lead to listen to me.' Combative, escalated hierarchically without data, lacks emotional intelligence and influence without authority."
+
+  - id: beh_weak_3
+    question_id: beh_google_failure
+    level: weak
+    expected_score_range: [1.0, 1.7]
+    transcript_summary: "When asked about a major outage, candidate blamed others: 'Our junior dev pushed untested code to master without a review, which brought down the checkout service for 2 hours. AWS was also having DNS issues that day. I fixed the code in 10 minutes. I told the junior engineer never to push to master again.' Refused personal ownership, blamed juniors and cloud vendors, zero blameless post-mortem, zero systemic guardrails."
+
+  # STRONG SAMPLES (Target Score: 3.3 - 4.0)
+  - id: beh_strong_1
+    question_id: beh_google_ambiguity
+    level: strong
+    expected_score_range: [3.4, 4.0]
+    transcript_summary: "Candidate described being tasked with building a real-time event pipeline when upstream product teams had conflicting schema requirements and no formal budget. Candidate conducted user interviews with 4 downstream engineering teams to map common denominators. Formulated a minimal bounded context schema and built a 2-week Golang prototype handling 50k mock events/sec to prove feasibility. Presented benchmark data (p99 latency <80ms) to executive stakeholders, aligning 3 disparate teams on a phased roadmap. Successfully delivered Phase 1 on schedule, processing 12M daily events with zero data loss."
+
+  - id: beh_strong_2
+    question_id: beh_google_conflict
+    level: strong
+    expected_score_range: [3.4, 4.0]
+    transcript_summary: "Candidate described a dispute between adopting Apache Kafka vs RabbitMQ for a distributed CRM messaging overhaul. The peer principal engineer favored RabbitMQ for simplicity; candidate favored Kafka for replayability and partition scaling. Candidate avoided theoretical debate and proposed a 3-day dual load-test spike on a staging cluster simulating 10x production surge. The benchmarks clearly demonstrated RabbitMQ memory bloat under backpressure while Kafka maintained linear write throughput. Candidate walked through the results collaboratively with the peer, acknowledged RabbitMQ's lower initial operational burden, and co-authored the architectural decision record (ADR). The peer became the co-lead for Kafka cluster deployment."
+
+  - id: beh_strong_3
+    question_id: beh_google_failure
+    level: strong
+    expected_score_range: [3.5, 4.0]
+    transcript_summary: "Candidate recounted a Sev-1 outage where a database migration script locked the main orders table in production during peak traffic, causing a 24-minute checkout outage affecting 18,000 users. Candidate immediately took incident commander role, executed automated rollback within 6 minutes, and restored traffic. In the post-mortem, candidate took full personal accountability as the approving reviewer. Instead of blaming the developer, candidate conducted a five-whys analysis: why did CI allow table-locking DDL on production schemas? Implemented systemic guardrails: integrated `gh-ost` zero-downtime schema migrations into the CI/CD pipeline, added automated dry-run lock detection, and instituted mandatory staging load tests for all schema changes. In the following 2 years, zero production migration incidents occurred."

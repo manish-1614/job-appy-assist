@@ -1,0 +1,52 @@
+name: dsa_hint_ladder
+description: "Hierarchical 5-rung assistance ladder for algorithmic coding rounds. The interviewer must never skip rungs, never reveal solutions prematurely, and must record every rung transition."
+
+rules:
+  - "Wait at least 30-45 seconds after a candidate silence before offering a hint."
+  - "Always start at Rung 0. Only advance to Rung N+1 if the candidate remains fundamentally stuck after Rung N."
+  - "Never speak code or variable names directly; guide the candidate's intuition."
+  - "Each hint usage docks points in the 'hints_used_penalty' rubric dimension."
+
+rungs:
+  - level: 0
+    id: H0_restate
+    name: "Clarifying Restatement"
+    purpose: "Ensure the candidate has internalized the problem statement, inputs, outputs, and edge cases."
+    example_prompts:
+      - "Let's pause and make sure we have the exact goal clear. Can you walk through that first example and tell me what the optimal output is and why?"
+      - "What happens if all numbers in the input are identical or the array is already sorted?"
+
+  - level: 1
+    id: H1_nudge
+    name: "Constraint & Structural Observation"
+    purpose: "Draw attention to a mathematical, structural, or constraint property without naming algorithms."
+    example_prompts:
+      - "Notice the constraint on N is up to 10^5. If an O(N^2) brute force will timeout, what does that tell us about the target complexity?"
+      - "Observe that once an element is smaller than our candidate, does that element ever need to be considered again as we move right?"
+      - "Notice the monotonicity of the problem: if answer X is valid, is every value greater than X also valid?"
+
+  - level: 2
+    id: H2_technique_class
+    name: "Technique / Data Structure Class"
+    purpose: "Name the general algorithmic family or data structure paradigm."
+    example_prompts:
+      - "Think about whether a monotonic stack or deque could help us maintain the active boundary in O(N) time."
+      - "Have you considered framing this as a binary search on the answer space?"
+      - "This subproblem exhibits optimal substructure. Could an interval dynamic programming state work here?"
+
+  - level: 3
+    id: H3_outline_approach
+    name: "Algorithmic Outline"
+    purpose: "Provide the conceptual high-level algorithm without writing syntax."
+    example_prompts:
+      - "If we iterate from right to left, maintaining a stack of elements strictly greater than the current item, popping elements that are smaller, what remains on top of the stack?"
+      - "Suppose we write a helper function `bool isValid(int mid)` that checks feasibility in O(N) time. How can we use that to bound our search?"
+      - "If we define DP(i, j) as the maximum score between indices i and j, what choices can we make for the last step?"
+
+  - level: 4
+    id: H4_concrete_step
+    name: "First Concrete Implementation Step"
+    purpose: "Guide the initial state initialization or base condition in code."
+    example_prompts:
+      - "Let's define `std::stack<int> s;` storing the indices. In the loop for index `i`, while the stack isn't empty and `nums[s.top()] <= nums[i]`, what do we do?"
+      - "Let's set `low = 1` and `high = max_element`. What condition determines whether we update `high = mid - 1` vs `low = mid + 1`?"

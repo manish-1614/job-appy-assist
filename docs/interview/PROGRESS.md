@@ -69,4 +69,41 @@ This document tracks phase-by-phase execution, architectural decisions, dependen
 - None. (Used existing `lucide-react`, `next/link`, `clsx`, `tailwind-merge`).
 
 ### 4. Decisions Needed / Blocking Questions
-- None. Phase 1 is complete and ready for Phase 2.
+- None. Phase 1 is complete.
+
+---
+
+## Phase 2: Interview Pack & Calibration Content (2026-09-21)
+
+### Status: Complete & Gate A Ready
+
+### 1. Done
+- **Machine-Readable Rubrics (`docs/interview/pack/rubrics/*.yaml`):**
+  - `system-design.yaml`: 9 weighted dimensions anchored 1–4, emphasizing traffic-spike handling, decoupled async architecture, consistency/availability trade-offs, and failure recovery.
+  - `advanced-dsa-cpp.yaml`: 7 dimensions covering modern C++ idioms, constraint bounds, Big-O analysis, edge-case dry runs, and hint penalty.
+  - `behavioral-google.yaml`: 5 Googleyness & Leadership dimensions evaluating ambiguity navigation, conflict resolution, STAR impact, and humble self-reflection.
+  - `communication-toptal.yaml`: 5 dimensions evaluating top-down structural clarity, conciseness, fluency, and handling pushback.
+  - `solutions-fde.yaml`: 4 enterprise consultative dimensions covering customer discovery, technical translation, and rollout de-risking.
+- **Hierarchical Hint & Probe Banks (`docs/interview/pack/hints/*.yaml`):**
+  - `dsa-hint-ladder.yaml`: Strict 5-rung ladder (H0 restate -> H1 constraint nudge -> H2 technique class -> H3 approach outline -> H4 concrete step).
+  - `system-design-probes.yaml`: Multi-tiered probe bank keyed by topic (spike, decoupling, failure, consistency, cost, observability) with 3 escalating probes each.
+- **Curated Question Banks with Hidden Reference Approaches (`docs/interview/pack/questions/*.yaml`):**
+  - `system-design.yaml`: 6 production distributed scenarios (flash-sale checkout, webhook delivery platform, rate limiter, feed fan-out, ride dispatch, log ingestion) with hidden reference solutions, spike handling, and failure modes.
+  - `dsa-cpp.yaml`: 10 hard-tier C++ problems with optimal approaches, asymptotic bounds, edge cases, and C++ idioms.
+  - `behavioral-and-screens.yaml`: 8 Google behavioral prompts, 6 Toptal communication prompts, and 3 Solutions/FDE scenarios.
+- **Loop Templates (`docs/interview/pack/loops/*.md`):**
+  - `toptal.md` and `google.md` with explicit `[ASSUMPTION — VERIFY AGAINST CURRENT PUBLIC SOURCES]` flags and verification checklists.
+- **Parametrized Prompts & JSON Schemas (`docs/interview/pack/prompts/` & `schemas/`):**
+  - `interviewer.system.md`: Refined Live system prompt enforcing brevity (1–3 sentences), zero unearned praise, and `[INTERNAL-OBSERVER]` handling.
+  - `observer.system.md` & `schemas/observer-output.schema.json`: Structured drift detection prompt and schema.
+  - `grader.system.md` & `schemas/grader-output.schema.json`: Adversarial post-interview grading prompt and schema enforcing the Zero-Fabrication rule.
+- **Templates & Execution Plans:**
+  - `templates/session-log.md`: Standardized manual session log.
+  - `manual-session-plan.md`: Step-by-step guide for running 5 calibration sessions in Google AI Studio Live, model comparison matrix (`gemini-3.8-live` vs `gemini-3.8-live-extended-thinking`), and instructions for scheduling 2 paid human mocks.
+- **Calibration Datasets (`docs/interview/pack/calibration/*.yaml`):**
+  - 3 deliberately weak and 3 strong sample responses each for System Design, Advanced DSA (C++), and Google Behavioral rounds to calibrate the automated grader in Phase 6.
+
+### 2. Next Steps (Gate A)
+- Human execution of the 5 manual AI Studio sessions per `manual-session-plan.md`.
+- User feedback report on interviewer naturalness, probing quality, and voice cadence before Phase 3 backend code begins.
+

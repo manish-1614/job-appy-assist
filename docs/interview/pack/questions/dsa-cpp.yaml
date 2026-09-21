@@ -1,0 +1,160 @@
+questions:
+  - id: dsa_constrained_shortest_path
+    title: "Cheapest Flights Within K Stops (Constrained Dijkstra / Bellman-Ford)"
+    category: "Graph / Shortest Path"
+    interviewer_prompt: "There are `n` cities connected by flights with given costs. Given `src`, `dst`, and integer `k`, find the cheapest price from `src` to `dst` with at most `k` stops. If no such route exists, return -1. Write idiomatic C++."
+    hidden_reference:
+      optimal_approach: "Modified Dijkstra with state `(cost, u, stops)` or Bellman-Ford / SPFA with K iterations using double-buffered cost arrays."
+      time_complexity: "O(K * E) with Bellman-Ford or O(E * K log(V * K)) with stateful priority queue."
+      space_complexity: "O(V) auxiliary memory."
+      edge_cases:
+        - "k == 0 (direct flight only)"
+        - "Cycle with lower cost that exceeds k stops (must prune and not get trapped)"
+        - "Destination unreachable within k stops even if reachable with k+1 stops"
+      cpp_idioms_to_check:
+        - "Avoid copying adjacency list; use `const std::vector<std::vector<std::pair<int, int>>>& adj`"
+        - "Use `std::greater<>` with `std::priority_queue` storing `std::tuple<int, int, int>`"
+        - "Prevent integer overflow when computing `cost + weight`"
+
+  - id: dsa_burst_balloons
+    title: "Burst Balloons (Interval Dynamic Programming)"
+    category: "Dynamic Programming"
+    interviewer_prompt: "You are given `n` balloons, indexed from 0 to n - 1. Each balloon is painted with a number on it represented by an array `nums`. You burst all balloons. If you burst balloon `i` you get `nums[i-1] * nums[i] * nums[i+1]` coins. If `i-1` or `i+1` goes out of bounds, treat it as 1. Return the maximum coins you can collect. Write idiomatic C++."
+    hidden_reference:
+      optimal_approach: "Interval DP thinking backwards: instead of choosing which balloon to burst first, choose which balloon `k` is the LAST balloon burst in interval `(i, j)`. State `dp[i][j] = max_{i < k < j}(dp[i][k] + dp[k][j] + nums[i]*nums[k]*nums[j])`."
+      time_complexity: "O(N^3)"
+      space_complexity: "O(N^2)"
+      edge_cases:
+        - "N = 1 (single balloon returns nums[0])"
+        - "All elements identical"
+        - "Zeroes inside the array"
+      cpp_idioms_to_check:
+        - "Pad `nums` with leading and trailing 1s"
+        - "Iterate by length of window `len = 2 to n+1`"
+
+  - id: dsa_segment_tree_inversions
+    title: "Count of Smaller Numbers After Self (Fenwick / Segment Tree)"
+    category: "Advanced Data Structures"
+    interviewer_prompt: "Given an integer array `nums`, return an integer array `counts` where `counts[i]` is the number of smaller elements to the right of `nums[i]`. Constraints: N up to 10^5, values between -10^4 and 10^4. Write idiomatic C++."
+    hidden_reference:
+      optimal_approach: "Coordinate compression + Binary Indexed Tree (Fenwick) or Merge Sort with index tracking. Traverse from right to left: query prefix sum in BIT, then update frequency of current number."
+      time_complexity: "O(N log N)"
+      space_complexity: "O(N)"
+      edge_cases:
+        - "All descending (maximum inversions)"
+        - "All ascending (0 inversions)"
+        - "Duplicate values (must strictly query strictly smaller `< val`, not `<= val`)"
+      cpp_idioms_to_check:
+        - "1-based indexing for Fenwick tree with `idx += idx & (-idx)`"
+        - "Use `std::lower_bound` on sorted unique elements for coordinate compression"
+
+  - id: dsa_sliding_window_max
+    title: "Sliding Window Maximum (Monotonic Deque)"
+    category: "Sliding Window / Monotonic Data Structure"
+    interviewer_prompt: "You are given an array of integers `nums`, there is a sliding window of size `k` which is moving from the very left of the array to the very right. You can only see the `k` numbers in the window. Return the max sliding window. N up to 10^5, k up to N. Write idiomatic C++."
+    hidden_reference:
+      optimal_approach: "Monotonic Decreasing Deque storing indices. For each new index `i`: pop elements from back while `nums[dq.back()] <= nums[i]`, push `i`, pop front if out of window `dq.front() <= i - k`, record `nums[dq.front()]` when `i >= k - 1`."
+      time_complexity: "O(N) amortized (each index pushed and popped at most once)."
+      space_complexity: "O(K) auxiliary memory for deque."
+      edge_cases:
+        - "k == 1 (returns original array)"
+        - "k == nums.size() (returns single maximum element)"
+        - "Strictly decreasing vs strictly increasing inputs"
+      cpp_idioms_to_check:
+        - "Store indices in `std::deque<int>` rather than values to easily verify window eviction"
+        - "Reserve vector capacity upfront: `res.reserve(nums.size() - k + 1)`"
+
+  - id: dsa_maximum_xor_trie
+    title: "Maximum XOR of Two Numbers in an Array (Bitwise Trie)"
+    category: "Bit Manipulation / Trie"
+    interviewer_prompt: "Given an integer array `nums`, return the maximum result of `nums[i] XOR nums[j]`, where 0 <= i <= j < n. Constraints: N up to 2 * 10^5, 0 <= nums[i] <= 2^31 - 1. Target time complexity: O(N * 32). Write idiomatic C++."
+    hidden_reference:
+      optimal_approach: "Binary Trie storing 31-bit binary representations. For each number, traverse the trie greedily taking opposite bit `1 - bit` if child exists to maximize XOR value."
+      time_complexity: "O(32 * N) = O(N)"
+      space_complexity: "O(32 * N) = O(N)"
+      edge_cases:
+        - "All numbers identical (returns 0)"
+        - "Zeroes and maximum values (0 and 2^31 - 1)"
+      cpp_idioms_to_check:
+        - "Clean Trie node struct with `std::unique_ptr` or flat array pool allocation to prevent memory leaks"
+        - "Proper bit shifting: `(val >> i) & 1`"
+
+  - id: dsa_dynamic_connectivity
+    title: "Number of Islands II (Union-Find with Ranks)"
+    category: "Graph / Disjoint Set Union"
+    interviewer_prompt: "You are given an empty `m x n` 2D binary grid. We perform a sequence of `k` additions where we turn water cells `(r, c)` into land. Return an array containing the number of islands after each operation. Write idiomatic C++."
+    hidden_reference:
+      optimal_approach: "Disjoint Set Union (DSU) with path compression and union by rank. Map 2D coordinate `(r, c)` to 1D `r * n + c`. On each add: increment island count, check 4 neighbors, union adjacent land cells and decrement island count per successful union."
+      time_complexity: "O(k * alpha(m * n)) practically O(k)"
+      space_complexity: "O(m * n)"
+      edge_cases:
+        - "Duplicate position added multiple times (must be idempotent, ignore already land)"
+        - "1x1 grid"
+        - "Adding land that connects 4 previously separate islands simultaneously"
+      cpp_idioms_to_check:
+        - "Path compression in `find(i)`: `parent[i] = find(parent[i])`"
+        - "Union by rank: maintain tree depth to keep operations near O(1)"
+
+  - id: dsa_kth_smallest_distance
+    title: "Find K-th Smallest Pair Distance (Binary Search on Answer)"
+    category: "Binary Search / Two Pointers"
+    interviewer_prompt: "Given an integer array `nums` and an integer `k`, return the k-th smallest distance among all pairs `(nums[i], nums[j])` where `0 <= i < j < nums.length`. The distance of a pair is `|nums[i] - nums[j]|`. N up to 10^4, k up to N*(N-1)/2. Write idiomatic C++."
+    hidden_reference:
+      optimal_approach: "Sort `nums`. Binary search on the answer distance in range `[0, max(nums) - min(nums)]`. In each iteration with candidate `mid`, count pairs with distance `<= mid` using two pointers in O(N) time."
+      time_complexity: "O(N log(max_val) + N log N)"
+      space_complexity: "O(1) auxiliary space"
+      edge_cases:
+        - "All elements equal (all distances 0)"
+        - "k == 1 (minimum adjacent difference after sort)"
+        - "k == N*(N-1)/2 (maximum difference)"
+      cpp_idioms_to_check:
+        - "Two pointers counting: while `nums[right] - nums[left] > mid`, increment `left`; add `right - left` to count"
+        - "Clean binary search bounds without infinite loop on `low < high`"
+
+  - id: dsa_course_schedule_iii
+    title: "Course Schedule III (Greedy + Max-Heap)"
+    category: "Greedy / Priority Queue"
+    interviewer_prompt: "There are `n` different online courses numbered from 1 to `n`. You are given an array `courses` where `courses[i] = [duration_i, lastDay_i]`. You can take only one course at a time. Return the maximum number of courses you can take. Write idiomatic C++."
+    hidden_reference:
+      optimal_approach: "Sort courses by `lastDay`. Iterate through courses adding duration to `totalTime` and pushing duration into a max-heap. If `totalTime > lastDay`, greedily pop the longest course from the max-heap and subtract its duration."
+      time_complexity: "O(N log N)"
+      space_complexity: "O(N)"
+      edge_cases:
+        - "Single course with duration > lastDay (cannot take, returns 0)"
+        - "Multiple courses with identical deadlines but different durations"
+      cpp_idioms_to_check:
+        - "Custom comparator or lambda for `std::sort`"
+        - "`std::priority_queue<int>` for max-heap"
+
+  - id: dsa_streaming_median
+    title: "Find Median from Data Stream (Two Balanced Heaps)"
+    category: "Design / Heaps"
+    interviewer_prompt: "Design a data structure `MedianFinder` that supports adding integers from a data stream and finding the median of all numbers added so far in O(1) time. Write idiomatic, memory-safe C++."
+    hidden_reference:
+      optimal_approach: "Two balanced heaps: a max-heap `leftHalf` for lower half and a min-heap `rightHalf` for upper half. Invariant: `leftHalf.size() == rightHalf.size()` or `leftHalf.size() == rightHalf.size() + 1`."
+      time_complexity: "`addNum` in O(log N), `findMedian` in O(1)."
+      space_complexity: "O(N)"
+      edge_cases:
+        - "Finding median before any elements added (throw exception or return 0.0)"
+        - "Odd vs even total count"
+        - "Negative numbers and potential overflow when computing `(a + b) / 2.0`"
+      cpp_idioms_to_check:
+        - "`std::priority_queue<int>` (max-heap) and `std::priority_queue<int, std::vector<int>, std::greater<int>>` (min-heap)"
+        - "Casting to `double` before addition: `(left.top() + (double)right.top()) / 2.0`"
+
+  - id: dsa_lru_cache
+    title: "LRU Cache Implementation (Hash Map + Doubly Linked List)"
+    category: "Design / Data Structures"
+    interviewer_prompt: "Design a data structure that follows the constraints of a Least Recently Used (LRU) cache. Implement `get(int key)` and `put(int key, int value)` in O(1) time. Ensure zero memory leaks and safe iterator usage in C++."
+    hidden_reference:
+      optimal_approach: "Combine `std::list<std::pair<int, int>>` (doubly-linked list for eviction order) and `std::unordered_map<int, std::list<std::pair<int, int>>::iterator>` for O(1) key lookup."
+      time_complexity: "O(1) for both `get` and `put`."
+      space_complexity: "O(capacity)"
+      edge_cases:
+        - "Updating existing key value (must update value AND move to front of list)"
+        - "Capacity == 1"
+        - "Eviction when full"
+      cpp_idioms_to_check:
+        - "Use `std::list::splice` to move nodes in O(1) time without reallocating nodes"
+        - "Avoid iterator invalidation during erase"
+        - "Proper destruction / RAII encapsulation"

@@ -1,0 +1,126 @@
+questions:
+  - id: sys_flash_sale
+    title: "Flash-Sale Checkout & Inventory Reservation System"
+    category: "High-Throughput E-Commerce"
+    interviewer_prompt: "Design an e-commerce checkout and inventory reservation system for a flash sale where 100,000 units of a high-demand item are sold out in under 60 seconds with 5,000,000 users attempting to purchase simultaneously."
+    expected_scale:
+      concurrent_users: "5,000,000"
+      peak_write_qps: "100,000 requests/sec"
+      inventory_units: "100,000 units"
+    hidden_reference:
+      overview: "A multi-layered admission-controlled reservation system using in-memory distributed atomic counters (Redis Lua script), asynchronous order fulfillment queues (Kafka), transactional outbox for durable DB settlement, and eventual payment reconciliation."
+      critical_spike_mechanics:
+        - "Virtual Waiting Room / Token Bucket Rate Limiting at API Gateway (e.g. Cloudflare / Envoy) to shed 95% of excess requests before touching backend."
+        - "In-memory inventory deduction via Redis Lua script: `if redis.call('get', key) >= qty then redis.call('decrby', key, qty) return 1 else return 0 end`."
+        - "No direct database writes during the 60-second flash peak. Redis holds temporary 15-minute lease reservations."
+      critical_decoupling_mechanics:
+        - "Successful reservation emits an event to Kafka partitioned by `item_id` or `order_id`."
+        - "Asynchronous order processing workers ingest Kafka events and persist into PostgreSQL/MySQL using Transactional Outbox."
+        - "Payment gateway interaction is completely decoupled; user receives a 15-minute reservation token to complete payment."
+      critical_failure_mechanics:
+        - "Expired Reservation Worker: If payment is not completed within 15 minutes, inventory is refunded back to Redis atomic counter."
+        - "Redis Primary-Replica Failover: Sentinel / Redis Cluster with AOF fsync=always or persistent memory to prevent overselling on crash."
+        - "Idempotency key derived from `user_id + item_id + sale_id` to strictly prevent multi-order exploits."
+
+  - id: sys_webhook_platform
+    title: "Enterprise Webhook & Event Delivery Engine"
+    category: "Developer Infrastructure / SaaS"
+    interviewer_prompt: "Design a high-scale webhook delivery platform (similar to Stripe or GitHub Webhooks) capable of dispatching 500,000,000 webhook events per day to millions of third-party customer endpoints with strict retry policies, rate limiting, and zero event loss."
+    expected_scale:
+      daily_events: "500,000,000 events/day (~6,000 avg QPS, 50,000 peak QPS)"
+      customer_endpoints: "1,000,000 endpoints"
+      retry_window: "Up to 72 hours with exponential backoff and jitter"
+    hidden_reference:
+      overview: "A tiered queuing and dispatch architecture that isolates slow/failing customer endpoints using separate priority lanes, asynchronous dispatch workers (Golang/Rust/Node), signed cryptographic payloads (HMAC-SHA256), and circuit breakers."
+      critical_spike_mechanics:
+        - "Tenant isolation: A customer whose endpoint is timing out (e.g. taking 10s per request) must never block other customers' webhook workers."
+        - "Worker pool partitioning: Dedicated fast-lane queue for endpoints responding in <500ms; slow/retry queues for degraded endpoints."
+      critical_decoupling_mechanics:
+        - "Event Ingestion via Kafka partitioned by `subscription_id` or `tenant_id`."
+        - "Exponential backoff retry queues (e.g. Retry-1m, Retry-5m, Retry-30m, Retry-6h, Retry-24h, Dead-Letter Queue)."
+        - "Delivery attempt audit log written asynchronously to clickstream datastore (ClickHouse / ScyllaDB) for customer dashboard inspection."
+      critical_failure_mechanics:
+        - "Circuit breaker on customer endpoints: If endpoint returns 500s or timeouts consecutively for >100 requests, automatically pause delivery and alert tenant."
+        - "SSRF Defense: Webhook dispatch workers must resolve DNS and strictly reject private IP ranges (127.0.0.1, 10.0.0.0/8, 169.254.169.254 metadata service)."
+
+  - id: sys_rate_limiter
+    title: "Global Distributed Multi-Tier Rate Limiting Service"
+    category: "Platform Security & Reliability"
+    interviewer_prompt: "Design a distributed rate-limiting service deployed across multiple geographic regions to protect public APIs from abuse, supporting per-tenant limits (e.g. 1,000 req/min for Free tier, 50,000 req/min for Enterprise) with sub-2ms latency overhead."
+    expected_scale:
+      total_incoming_qps: "1,000,000 global requests/sec"
+      latency_budget: "< 2ms latency addition per API call"
+      tenants: "500,000 active API keys"
+    hidden_reference:
+      overview: "A hybrid hierarchical rate limiter: in-memory local caching at API gateway Envoy proxies (sliding window counter or token bucket) with asynchronous batch reconciliation to regional Redis clusters and eventual global budget synchronization."
+      critical_spike_mechanics:
+        - "Local in-process memory rate limiting: Avoid network hop on every single request. Worker fetches a 5-second quota batch from Redis."
+        - "Sliding Window Counter algorithm using Redis sorted sets (ZADD/ZREMRANGEBYSCORE) for low QPS, or composite fixed-window counter with current/previous window interpolation for high QPS."
+      critical_decoupling_mechanics:
+        - "Asynchronous synchronization: Gateways communicate rate metric updates via UDP/gRPC streaming or Kafka to central analytics."
+        - "Fail-open policy: If the central Redis cluster dies or network partitions occur, the rate limiter must fail OPEN (allow traffic) to protect business continuity, while emitting an urgent alert."
+      critical_failure_mechanics:
+        - "Multi-region synchronization lag: Accept soft limits across regions (e.g. +/- 5% tolerance) rather than synchronous inter-region blocking."
+        - "HTTP 429 response formatting with `Retry-After`, `X-RateLimit-Limit`, and `X-RateLimit-Remaining` headers."
+
+  - id: sys_feed_fanout
+    title: "Real-Time Activity Feed & Timeline Fan-Out System"
+    category: "Social Networks & Content Distribution"
+    interviewer_prompt: "Design the timeline feed service for a platform like Twitter/X with 300,000,000 DAU, where users follow hundreds of creators, celebrity accounts have 50,000,000 followers, and post reads must return in under 100ms."
+    expected_scale:
+      dau: "300,000,000"
+      write_qps: "10,000 tweets/sec"
+      read_qps: "250,000 timeline reads/sec"
+      celebrity_followers: "50,000,000 followers"
+    hidden_reference:
+      overview: "A hybrid push-pull (fan-out on write vs fan-out on read) architecture using Redis in-memory timeline lists for normal users and dynamic on-demand query merging for high-follower celebrity accounts."
+      critical_spike_mechanics:
+        - "Celebrity Problem (Fan-Out on Write Bottleneck): If a user with 50M followers posts, pushing to 50M Redis lists causes massive write amplification and lag."
+        - "Solution: Do NOT fan-out celebrity tweets on write. Store celebrity tweet once. When a regular user fetches their feed, pull the latest celebrity tweets they follow and merge in-memory."
+      critical_decoupling_mechanics:
+        - "Kafka event stream `tweets_created` consumed by fan-out worker clusters."
+        - "Fan-out workers update Redis sorted sets (ZSET with score = tweet_timestamp) capped at 800 recent tweets per active user."
+        - "Inactive users (no login for 14 days) are excluded from fan-out on write; their timeline is reconstructed lazily upon login."
+      critical_failure_mechanics:
+        - "Cache cold-start: Tiered caching (CDN -> Redis Cluster -> Cassandra/ScyllaDB)."
+        - "Tweet deletion propagation: Tombstone markers and asynchronous delete broadcasts."
+
+  - id: sys_ride_dispatch
+    title: "Real-Time Ride Hailing & Geolocation Surge Dispatch"
+    category: "Mobility & Geolocation"
+    interviewer_prompt: "Design the real-time driver tracking, matching, and dynamic surge pricing engine for a ride-hailing app (like Uber) handling 1,000,000 active drivers sending GPS updates every 4 seconds in major metropolitan areas."
+    expected_scale:
+      active_drivers: "1,000,000 drivers"
+      gps_ping_rate: "Every 4 seconds (250,000 GPS writes/sec)"
+      active_ride_requests: "20,000 matches/sec"
+    hidden_reference:
+      overview: "Spatial indexing using Uber H3 hexagonal hierarchical spatial index or Google S2 geometry, in-memory spatial shards in Redis/MemoryDB, geohash partitioned Kafka streams, and localized surge calculation engines."
+      critical_spike_mechanics:
+        - "High write volume: 250,000 GPS pings/sec cannot write to relational disk. Ingestion buffers write to Redis Geospatial / H3 cell memory buffers."
+        - "Surge pricing calculation: Aggregates rider demand vs available driver supply per H3 hexagon cell (resolution 7 or 8) every 10–30 seconds."
+      critical_decoupling_mechanics:
+        - "Driver location updates published to Kafka partitioned by `city_id + h3_resolution_6_index`."
+        - "Dispatch matching engine queries nearby H3 cells in concentric rings (k-ring 1, 2, 3), reserving drivers with distributed locks before sending push notification."
+      critical_failure_mechanics:
+        - "Driver disconnect handling: If driver heartbeat fails for >16 seconds (4 missed pings), remove driver from active spatial index."
+        - "Race condition: Two riders requesting the same closest driver simultaneously handled via Redis atomic lock (`SET key driver_id NX EX 10`)."
+
+  - id: sys_log_ingestion
+    title: "Massive-Scale Distributed Log & Telemetry Pipeline"
+    category: "Observability & Big Data"
+    interviewer_prompt: "Design a centralized logging and observability pipeline (similar to Datadog or ELK at scale) ingesting 10 Terabytes of raw log data per hour from 100,000 microservice containers, providing sub-5-second search indexing for active alerts and long-term cold archiving."
+    expected_scale:
+      ingestion_volume: "10 TB/hour (~3 GB/second sustained, 10 GB/sec peak)"
+      searchable_window: "Hot searchable for 7 days; cold archive for 365 days"
+      query_latency: "Sub-5 seconds for regex/filter queries on last 2 hours"
+    hidden_reference:
+      overview: "High-throughput log collector agents (Vector/Fluentbit) pushing to an edge buffer, high-partition Kafka/Pulsar cluster, stream processor for parsing/enrichment (Flink), indexing into column-oriented stores (ClickHouse or Elasticsearch), and asynchronous micro-batch dumping to AWS S3 Parquet format."
+      critical_spike_mechanics:
+        - "Local disk buffer on agents: If upstream network buffers saturate, agent spools to local container disk up to 500MB before dropping low-severity debug logs."
+        - "Backpressure & Dynamic Log Level Sampling: When cluster queue exceeds 80% capacity, drop DEBUG/TRACE logs automatically."
+      critical_decoupling_mechanics:
+        - "Decoupled ingestion from indexing: Kafka absorbs massive traffic spikes while downstream indexers consume at steady maximum throughput."
+        - "Separate hot indexing pipeline (ClickHouse/Elasticsearch with NVMe SSDs) from cold archive pipeline (Apache Iceberg / Parquet on S3)."
+      critical_failure_mechanics:
+        - "Index schema explosion: Structured JSON logs with random dynamic keys sanitized into a flattened key-value attribute array to prevent index mapping crashes."
+        - "Data tiering lifecycle: Automatic rotation from hot (7 days) -> warm (30 days) -> cold Glacier (365 days)."

@@ -1,0 +1,41 @@
+round_type: system_design
+expected_separation_margin: 1.2 # Strong samples must score at least 1.2 points higher than weak samples on 1-4 scale
+
+samples:
+  # WEAK SAMPLES (Target Score: 1.0 - 1.8)
+  - id: sys_weak_1
+    question_id: sys_flash_sale
+    level: weak
+    expected_score_range: [1.0, 1.8]
+    transcript_summary: "Candidate jumped immediately into drawing a React frontend connected to an EC2 instance and a MySQL database. When asked how the system handles 100k requests/sec during the flash sale, candidate said: 'AWS auto-scaling will spin up more EC2 instances and MySQL read replicas.' Did not know what thundering herd was, suggested locking the MySQL rows with SELECT FOR UPDATE, and had no queue or caching mechanism."
+
+  - id: sys_weak_2
+    question_id: sys_webhook_platform
+    level: weak
+    expected_score_range: [1.2, 2.0]
+    transcript_summary: "Candidate proposed an API gateway that calls customer webhook URLs directly using synchronous Axios HTTP POST requests in a loop. When asked what happens if a customer URL takes 30 seconds to respond or times out, candidate replied: 'The loop will just wait, or we can use Promise.all().' Ignored worker thread exhaustion, had no retry backoff queues, and stored event payloads in MongoDB without schema validation or signing."
+
+  - id: sys_weak_3
+    question_id: sys_rate_limiter
+    level: weak
+    expected_score_range: [1.0, 1.7]
+    transcript_summary: "Candidate proposed keeping an in-memory counter variable inside the Node.js server process. When interviewer pointed out that with 50 load-balanced servers, each server only tracks its own requests, candidate suggested storing all counts in a relational Postgres table with transactions on every single request. Completely ignored the 2ms latency budget and single-point-of-failure database bottleneck."
+
+  # STRONG SAMPLES (Target Score: 3.3 - 4.0)
+  - id: sys_strong_1
+    question_id: sys_flash_sale
+    level: strong
+    expected_score_range: [3.3, 4.0]
+    transcript_summary: "Candidate systematically scoped functional and non-functional requirements upfront (p99 latency <150ms, zero overselling). Proposed a virtual waiting room with token-bucket admission control at the gateway shedding 95% excess traffic. Used Redis cluster with atomic Lua scripts for inventory deduction (`if redis.call('get', key) >= qty ...`). Held 15-minute temporary reservation leases in Redis without touching DB during peak minute. Published successful reservations to Kafka partitioned by item_id. Workers asynchronously persisted orders via Transactional Outbox pattern into PostgreSQL. Handled expired leases with automated inventory refund sweeps. Analyzed Redis AOF persistence trade-offs and cross-AZ failover."
+
+  - id: sys_strong_2
+    question_id: sys_webhook_platform
+    level: strong
+    expected_score_range: [3.3, 4.0]
+    transcript_summary: "Candidate scoped 500M daily deliveries (~50k peak QPS). Ingested events via Kafka partitioned by tenant_id to guarantee per-subscriber ordering. Built an asynchronous dispatcher worker pool in Go using epoll non-blocking network I/O. Separated queues into fast lanes (<500ms) and multi-tiered retry lanes (1m, 5m, 30m, 6h, 24h, DLQ) with exponential backoff and randomized jitter to prevent retry storms. Protected internal network with strict SSRF validation rejecting private CIDR blocks and resolving DNS before socket connection. Signed all payloads with HMAC-SHA256 headers. Implemented tenant-level circuit breakers pausing deliveries to crashing customer endpoints after 100 consecutive 5xx errors."
+
+  - id: sys_strong_3
+    question_id: sys_rate_limiter
+    level: strong
+    expected_score_range: [3.4, 4.0]
+    transcript_summary: "Candidate immediately targeted sub-2ms overhead by rejecting synchronous cross-region DB hops. Implemented a hierarchical rate limiter: in-process sliding window counter inside Envoy proxy caching 5-second quota allocations from regional Redis clusters. Used Redis sorted set algorithm for strict low-QPS enterprise tiers and fixed-window counter with current/previous window overlap interpolation for high-volume endpoints to minimize memory. Handled multi-region synchronization asynchronously via UDP/gRPC batch updates. Formulated explicit fail-open policy when Redis clusters become partitioned, emitting emergency P1 alerts. Returned RFC 6585 compliant HTTP 429 headers with Retry-After."

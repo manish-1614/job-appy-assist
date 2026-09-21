@@ -1,0 +1,98 @@
+behavioral_google:
+  - id: beh_google_ambiguity
+    title: "Navigating High-Stakes Technical Ambiguity"
+    interviewer_prompt: "Tell me about a time when you were handed a project with extremely vague requirements or conflicting stakeholder expectations. How did you define the technical path forward, and what was the outcome?"
+    expected_evidence:
+      - "Identified missing core assumptions before writing code."
+      - "Created prototype/spikes to de-risk key architectural unknowns."
+      - "Aligned divergent stakeholders with quantifiable metrics or benchmarks."
+
+  - id: beh_google_conflict
+    title: "Architectural Disagreement Across Senior Peers"
+    interviewer_prompt: "Describe a situation where you had a fundamental technical disagreement with another senior or principal engineer on architecture. How did you resolve it without compromising the timeline or relationship?"
+    expected_evidence:
+      - "Separated personal pride from technical merit."
+      - "Used objective data, load tests, or prototypes to evaluate both options."
+      - "Demonstrated 'disagree and commit' or collaborative consensus."
+
+  - id: beh_google_failure
+    title: "Severe Production Incident Post-Mortem"
+    interviewer_prompt: "Tell me about the most critical production outage or bug you personally introduced or were on-call for. What was the blast radius, how did you remediate it in real-time, and what systemic changes did you implement?"
+    expected_evidence:
+      - "Took clear ownership without shifting blame to junior engineers or cloud vendors."
+      - "Detailed immediate mitigation (e.g. rollback, circuit breaker, traffic rerouting) versus root-cause fix."
+      - "Drove blameless post-mortem that created lasting guardrails."
+
+  - id: beh_google_influence
+    title: "Driving Adoption Without Authority"
+    interviewer_prompt: "Give me an example of an engineering practice, tool, or architectural pattern you championed that met resistance from other teams. How did you build consensus and drive adoption without managerial authority?"
+    expected_evidence:
+      - "Demonstrated grassroots momentum (e.g. brown bags, clear developer tooling improvement)."
+      - "Showed measurable productivity or reliability gains for early adopter teams."
+
+  - id: beh_google_complexity
+    title: "Leading a High-Complexity Multi-Quarter System Migration"
+    interviewer_prompt: "Describe the most complex distributed systems migration you led. What were the failure risks, how did you ensure zero downtime, and how did you measure success?"
+    expected_evidence:
+      - "Strangler fig or dual-write architecture with automated reconciliation."
+      - "Canary cutover strategy with clear rollback triggers."
+      - "Quantified latency, throughput, or infrastructure cost improvements."
+
+  - id: beh_google_tradeoff
+    title: "Balancing Tech Debt Against Product Deadlines"
+    interviewer_prompt: "Tell me about a time when business pressure forced you to make a technical compromise or incur significant technical debt. How did you manage that tradeoff and ensure the debt was eventually addressed?"
+    expected_evidence:
+      - "Deliberately documented debt and quantified interest/risk."
+      - "Constructed a phased plan to pay down debt without halting product momentum."
+
+  - id: beh_google_mentorship
+    title: "Elevating Team Engineering Velocity & Standards"
+    interviewer_prompt: "How have you elevated the engineering standards of engineers around you? Tell me about a junior or mid-level engineer you coached through a difficult plateau."
+    expected_evidence:
+      - "Patient, empathetic mentorship tailored to the mentee's specific blind spot."
+      - "Tangible advancement in mentee's autonomy, code quality, or promotion."
+
+  - id: beh_google_pushback
+    title: "Pushing Back on Unrealistic Leadership Directives"
+    interviewer_prompt: "Tell me about a time when executive leadership requested an unrealistic deadline or flawed feature direction. How did you communicate the risk and negotiate a viable alternative?"
+    expected_evidence:
+      - "Presented reality in terms of risk to customer trust, uptime, and delivery probability."
+      - "Offered scoped MVP options rather than a flat, unconstructive 'no'."
+
+communication_toptal:
+  - id: comm_explain_distributed_lock
+    title: "Explaining Distributed Locks to a Mixed Audience"
+    interviewer_prompt: "In 2 minutes, explain how a distributed lock works using Redis Redlock or ZooKeeper, why distributed locking is dangerous if not done carefully (clock drift/GC pauses), and when you would avoid it."
+
+  - id: comm_microservices_vs_monolith
+    title: "Pragmatic Monolith vs Microservices Tradeoff"
+    interviewer_prompt: "A startup client with 10 engineers wants to rewrite their monolithic Rails backend into 20 microservices with Kafka. Explain in 90 seconds how you would advise their CTO."
+
+  - id: comm_async_event_consistency
+    title: "Explaining Eventual Consistency to a Skeptical Finance Director"
+    interviewer_prompt: "Explain eventual consistency to a finance stakeholder who insists that every single database read across global offices must be strictly synchronized in real time."
+
+  - id: comm_technical_gap
+    title: "Handling an Unfamiliar Framework on a Live Client Call"
+    interviewer_prompt: "During a live client discovery call, the client asks: 'We use Apache Flink with RocksDB state backend for event windowing. How many years of production Flink tuning do you have?' You have extensive Kafka and distributed experience, but zero Flink. Give your exact spoken response."
+
+  - id: comm_postmortem_summary
+    title: "60-Second Executive Incident Briefing"
+    interviewer_prompt: "Give a 60-second executive summary of a major database failover outage to a non-technical CEO, covering what happened, current status, customer impact, and the permanent fix."
+
+  - id: comm_pushback_scope_creep
+    title: "Declining Mid-Sprint Scope Creep Collaboratively"
+    interviewer_prompt: "A client stakeholder messages you on Slack demanding an urgent custom export feature be added to tomorrow's deployment. How do you respond concisely while preserving the relationship and sprint commitment?"
+
+solutions_fde:
+  - id: fde_legacy_sync
+    title: "Legacy Enterprise CRM to Cloud-Native Streaming Sync"
+    interviewer_prompt: "An enterprise telco client has a 15-year-old on-premise billing system running Oracle that locks tables during batch runs. They want real-time customer balance updates on their new mobile app. How do you design the integration architecture, and how do you de-risk the rollout?"
+
+  - id: fde_ai_rag_accuracy
+    title: "De-Risking Hallucinations in an Enterprise AI Workflow"
+    interviewer_prompt: "A healthcare enterprise wants to deploy an AI agent to extract diagnostic codes and policy eligibility from insurance PDFs. The CEO is terrified of hallucinations and regulatory liability. Walk me through your end-to-end reliability architecture and evaluation harness."
+
+  - id: fde_vendor_lockin
+    title: "Addressing Multi-Cloud / Vendor Lock-In Concerns"
+    interviewer_prompt: "A government banking client insists that all microservices must run identically across AWS, GCP, and on-premise bare metal without proprietary cloud services (no SQS, no DynamoDB, no BigQuery). Frame the tradeoffs of this approach and propose a pragmatic architecture."

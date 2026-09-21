@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InterviewGraderOutput",
+  "type": "object",
+  "properties": {
+    "overall_score": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 4.0,
+      "description": "Weighted overall rubric score between 1.0 (clear fail) and 4.0 (strong hire)."
+    },
+    "hire_signal": {
+      "type": "string",
+      "enum": ["strong_hire", "hire", "borderline", "no_hire"],
+      "description": "Final recommendation based on calibrated rubric thresholds."
+    },
+    "dimension_scores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "dimension_id": { "type": "string" },
+          "dimension_name": { "type": "string" },
+          "score": { "type": "number", "minimum": 1.0, "maximum": 4.0 },
+          "evidence_quote": {
+            "type": "string",
+            "description": "Verbatim quote from candidate transcript or specific code line justifying score."
+          },
+          "timestamp_offset_ms": { "type": "number" },
+          "rationale": {
+            "type": "string",
+            "description": "Adversarial, non-inflated justification comparing candidate actions to rubric anchors."
+          }
+        },
+        "required": ["dimension_id", "dimension_name", "score", "evidence_quote", "rationale"],
+        "additionalProperties": false
+      }
+    },
+    "top_weaknesses": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "maxItems": 3,
+      "description": "Top 1 to 3 critical weaknesses observed during the session."
+    },
+    "recommended_drills": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "maxItems": 3,
+      "description": "Concrete practice drills or architectural concepts to review next."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Concise executive debrief of candidate performance."
+    }
+  },
+  "required": ["overall_score", "hire_signal", "dimension_scores", "top_weaknesses", "recommended_drills", "summary"],
+  "additionalProperties": false
+}

@@ -1,0 +1,69 @@
+name: system_design_probes
+description: "Hierarchical follow-up probe bank for system design interviews. Organized by architectural pillar with 3 escalating levels of inquiry."
+
+topics:
+  spike:
+    name: "Traffic-Spikes, Thundering Herds & Overload"
+    trigger_condition: "Candidate relies passively on 'autoscaling' or puts all load directly onto a primary database."
+    probes:
+      - level: 1
+        text: "What happens to the system if traffic suddenly jumps by 50x in 60 seconds — for example during a flash sale or breaking event?"
+      - level: 2
+        text: "Autoscaling cloud instances typically takes 3 to 5 minutes to spin up and pass health checks. How does your ingestion layer prevent database connection pool exhaustion during that lag?"
+      - level: 3
+        text: "If your cache layer evicts a hot key under 100k concurrent requests, how do you prevent the thundering herd from crashing the underlying datastore? Walk me through the exact locking or probabilistic refresh mechanism."
+
+  decoupling:
+    name: "Decoupling, Asynchrony & Idempotency"
+    trigger_condition: "Candidate uses synchronous REST calls across multiple downstream services or ignores duplicate message delivery."
+    probes:
+      - level: 1
+        text: "If the payment gateway or notification service experiences a 2-second timeout, does the client request fail completely, or how is that decoupled?"
+      - level: 2
+        text: "In your event bus, message brokers guarantee at-least-once delivery. How does your downstream worker ensure duplicate messages don't double-charge the user or produce duplicate orders?"
+      - level: 3
+        text: "If the application server crashes immediately after committing to the database but before publishing to Kafka, how do you prevent lost events? Walk me through how you'd implement the Transactional Outbox pattern."
+
+  failure:
+    name: "Component, Network & AZ Failures"
+    trigger_condition: "Candidate draws a single primary database or assumes network calls never fail."
+    probes:
+      - level: 1
+        text: "What represents the single point of failure (SPOF) in this current diagram, and what happens if that instance dies?"
+      - level: 2
+        text: "If an entire availability zone suffers a network partition or power outage, what is your automated failover sequence, and what is your expected RTO and RPO?"
+      - level: 3
+        text: "Suppose a downstream dependency begins returning 500 errors with 10-second latencies. How do you prevent thread starvation in your upstream callers from bringing down the entire cluster?"
+
+  consistency:
+    name: "Consistency vs Availability & Multi-Region Sync"
+    trigger_condition: "Candidate claims strict ACID consistency globally without explaining latency costs or replication lag."
+    probes:
+      - level: 1
+        text: "In this architecture, which specific user actions require strict serializable consistency, and which can safely tolerate eventual consistency?"
+      - level: 2
+        text: "If you are reading from read-replicas that have a 300ms replication lag, how do you prevent a user from refreshing their page and seeing their newly posted comment disappear?"
+      - level: 3
+        text: "If we deploy active-active in both US-East and Tokyo, how do you handle concurrent conflicting updates to the same user profile without data corruption?"
+
+  cost:
+    name: "Cost Awareness & Economic Hardware Sizing"
+    trigger_condition: "Candidate recommends keeping all raw data in memory indefinitely or provisions thousands of instances casually."
+    probes:
+      - level: 1
+        text: "Looking at your storage estimates of 50 Terabytes per year, what tiering strategy would you employ so we don't pay high SSD prices for cold historical data?"
+      - level: 2
+        text: "You mentioned caching everything in Redis. Can we actually fit the active working set into RAM, or how much memory does that cluster need?"
+      - level: 3
+        text: "Between running an always-on Kafka cluster versus managed serverless queues (like SQS), what are the cost and operational tradeoffs at this scale?"
+
+  observability:
+    name: "Observability, Telemetry & Incident Mitigation"
+    trigger_condition: "Candidate fails to mention metrics, tracing, or debugging capabilities."
+    probes:
+      - level: 1
+        text: "When a user reports that an order was placed but they never received confirmation, how does an on-call engineer trace that transaction across your services?"
+      - level: 2
+        text: "What top 3 Service Level Indicators (SLIs) would you put on a dashboard for this service, and what threshold triggers a pager alert?"
+      - level: 3
+        text: "If p99 latency spikes from 120ms to 4.5 seconds while p50 remains flat, how do you isolate whether the bottleneck is GC pauses, DB lock contention, or network packet drops?"

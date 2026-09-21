@@ -1,0 +1,41 @@
+round_type: advanced_dsa_cpp
+expected_separation_margin: 1.2
+
+samples:
+  # WEAK SAMPLES (Target Score: 1.0 - 1.8)
+  - id: dsa_weak_1
+    question_id: dsa_constrained_shortest_path
+    level: weak
+    expected_score_range: [1.0, 1.7]
+    code_summary: "Candidate attempted standard unconstrained Dijkstra without tracking stops in priority queue or state. When interviewer pointed out that a shorter path could have more than k stops, candidate copy-pasted a recursive DFS that visited every path with no memoization or pruning, resulting in O(V^K) exponential time explosion. Used C-style raw arrays `int adj[100][100]` with buffer overflow vulnerabilities."
+
+  - id: dsa_weak_2
+    question_id: dsa_sliding_window_max
+    level: weak
+    expected_score_range: [1.2, 1.9]
+    code_summary: "Candidate implemented a nested loop finding `*max_element(nums.begin() + i, nums.begin() + i + k)` for every index, producing O(N * K) time. When informed N, K <= 10^5 times out, candidate switched to `std::multiset` (O(N log K)) but couldn't explain why multiset removal by value `ms.erase(nums[i - k])` deletes all duplicate instances rather than a single element, introducing silent correctness bugs."
+
+  - id: dsa_weak_3
+    question_id: dsa_lru_cache
+    level: weak
+    expected_score_range: [1.0, 1.8]
+    code_summary: "Candidate used a single `std::vector<pair<int, int>>`. For `get`, looped linearly O(N) to find key. For `put`, inserted at end O(1) and erased from front O(N). Did not achieve O(1) time complexity. Had dangling pointer bugs when trying to store raw node addresses, and failed to handle updating existing keys."
+
+  # STRONG SAMPLES (Target Score: 3.3 - 4.0)
+  - id: dsa_strong_1
+    question_id: dsa_constrained_shortest_path
+    level: strong
+    expected_score_range: [3.4, 4.0]
+    code_summary: "Candidate analyzed constraints upfront, identified that state must be `(cost, node, stops)`. Implemented Bellman-Ford with double-buffered distance vector `dist` and `tempDist` running exactly K+1 relaxations, achieving O(K * E) time and O(V) space. Explained why naive single-array relaxation causes cascading updates over >1 stop in a single round. Checked integer overflow using `INT_MAX`, handled disconnected graphs, and dry ran with k=0 direct flight edge case."
+
+  - id: dsa_strong_2
+    question_id: dsa_sliding_window_max
+    level: strong
+    expected_score_range: [3.4, 4.0]
+    code_summary: "Candidate immediately recognized monotonic decreasing deque pattern. Stored indices rather than values in `std::deque<int> dq`. For each index `i`: popped back elements while `nums[dq.back()] <= nums[i]`, pushed `i`, evicted front element if `dq.front() <= i - k`, and appended `nums[dq.front()]` when `i >= k - 1`. Proved amortized O(N) time complexity because each element is pushed and popped at most once. Used modern C++: reserved vector capacity, `const std::vector<int>&` parameter, handled k=1 and k=N edge cases cleanly."
+
+  - id: dsa_strong_3
+    question_id: dsa_lru_cache
+    level: strong
+    expected_score_range: [3.4, 4.0]
+    code_summary: "Candidate combined `std::list<std::pair<int, int>>` (doubly linked list maintaining MRU-to-LRU order) with `std::unordered_map<int, std::list<std::pair<int, int>>::iterator>`. Used `std::list::splice` to move existing nodes to the front in O(1) without reallocating nodes or invalidating iterators. Handled updates to existing keys by updating value and splicing. Handled capacity overflow by popping back node from list and erasing from map in O(1). Fully memory-safe with automatic RAII container cleanup."

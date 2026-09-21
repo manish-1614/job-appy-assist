@@ -10,6 +10,8 @@ import {
 } from './protocol';
 import { checkBudgetGuard, recordSessionUsage } from './cost-meter';
 import { compileInterviewerPrompt, QuestionDefinition } from './prompts';
+import { ObserverPolicyEngine } from './policy-engine';
+import { InterviewObserverService } from './observer';
 
 export class InterviewSessionManager {
   private clientWs: WebSocket;
@@ -22,6 +24,15 @@ export class InterviewSessionManager {
   private currentCandidateText: string = '';
   private isMockMode: boolean = false;
   private activeQuestion: QuestionDefinition | null = null;
+
+  // Observer & Policy Engine
+  private policyEngine: ObserverPolicyEngine | null = null;
+  private observerService: InterviewObserverService | null = null;
+  private observerInterval: any = null;
+  private latestDiagramDigest: string = '';
+  private latestCodeDigest: string = '';
+  private recentTurns: Array<{ speaker: string; text: string }> = [];
+  private previousProbes: string[] = [];
 
   constructor(clientWs: WebSocket, isMockMode = false) {
     this.clientWs = clientWs;
@@ -136,7 +147,12 @@ export class InterviewSessionManager {
       }
     }
 
-    // 5. Emit session.ready
+    // 5. Initialize Observer & Policy Engine (Phase 5)
+    this.policyEngine = new ObserverPolicyEngine(this.startTimeMs);
+    this.observerService = new InterviewObserverService(this.isMockMode);
+    this.startObserverLoop();
+
+    // 6. Emit session.ready
     this.send({
       type: 'session.ready',
       sessionId: this.sessionId,
@@ -327,6 +343,13 @@ export class InterviewSessionManager {
     if (!this.sessionId) return;
     const offsetMs = Date.now() - this.startTimeMs;
 
+    // Track latest digests for Observer
+    if (msg.kind === 'diagram') {
+      this.latestDiagramDigest = msg.contentText;
+    } else {
+      this.latestCodeDigest = msg.contentText;
+    }
+
     // Persist snapshot to SQLite
     sqlite
       .prepare(
@@ -358,6 +381,10 @@ export class InterviewSessionManager {
   }
 
   private handleCandidateSpeechState(msg: Extract<ClientMessage, { type: 'candidate.speech_state' }>): void {
+    if (this.policyEngine) {
+      this.policyEngine.onCandidateSpeechChange(msg.state === 'speaking');
+    }
+
     if (msg.state === 'speaking') {
       // Barge-in: immediately set interviewer state to interrupted
       this.send({
@@ -369,6 +396,11 @@ export class InterviewSessionManager {
 
   public async handleSessionEnd(reason: string): Promise<void> {
     if (!this.sessionId) return;
+
+    if (this.observerInterval) {
+      clearInterval(this.observerInterval);
+      this.observerInterval = null;
+    }
 
     const nowIso = new Date().toISOString();
     sqlite
@@ -417,10 +449,85 @@ export class InterviewSessionManager {
     this.sessionId = null;
   }
 
+  private startObserverLoop(): void {
+    if (this.observerInterval) clearInterval(this.observerInterval);
+
+    this.observerInterval = setInterval(async () => {
+      if (!this.sessionId || !this.activeQuestion || !this.policyEngine || !this.observerService) return;
+
+      const decision = this.policyEngine.evaluateInterjection();
+      if (!decision.allow) return;
+
+      try {
+        const evalResult = await this.observerService.evaluate({
+          sessionId: this.sessionId,
+          question: this.activeQuestion,
+          diagramDigest: this.latestDiagramDigest,
+          codeDigest: this.latestCodeDigest,
+          recentTurns: this.recentTurns,
+          elapsedMinutes: Math.round((Date.now() - this.startTimeMs) / 60000),
+          previousProbes: this.previousProbes,
+        });
+
+        if (
+          evalResult.status === 'drifting' ||
+          evalResult.status === 'stuck' ||
+          evalResult.status === 'off_track'
+        ) {
+          this.policyEngine.recordInterjectionTriggered();
+          this.previousProbes.push(evalResult.suggested_probe);
+          this.recordEvent('interjection', evalResult);
+
+          this.send({
+            type: 'observer.cue',
+            cueType: evalResult.missing_topics[0] || 'drift_probe',
+            message: evalResult.suggested_probe,
+          });
+
+          if (this.liveSession && !this.isMockMode) {
+            try {
+              this.liveSession.sendClientContent({
+                turns: [
+                  {
+                    role: 'user',
+                    parts: [
+                      {
+                        text: `[INTERNAL-OBSERVER] Probe candidate: ${evalResult.suggested_probe}`,
+                      },
+                    ],
+                  },
+                ],
+                turnComplete: false,
+              });
+            } catch (err) {
+              console.warn('Error injecting observer probe into live session:', err);
+            }
+          } else if (this.isMockMode) {
+            this.send({
+              type: 'transcript.entry',
+              speaker: 'interviewer',
+              text: evalResult.suggested_probe,
+              isFinal: true,
+              timestampMs: Date.now() - this.startTimeMs,
+            });
+            this.recordTurn('interviewer', evalResult.suggested_probe, 'audio_transcript');
+          }
+        }
+      } catch (err) {
+        console.warn('Error in background observer evaluation loop:', err);
+      }
+    }, 5000);
+  }
+
   private recordTurn(speaker: string, text: string, source = 'audio_transcript'): void {
     if (!this.sessionId) return;
     this.turnSeq += 1;
     const offsetMs = Date.now() - this.startTimeMs;
+
+    this.recentTurns.push({ speaker, text });
+    if (this.recentTurns.length > 20) {
+      this.recentTurns.shift();
+    }
 
     sqlite
       .prepare(
